@@ -36,7 +36,7 @@
     /* product card */
     .card{display:flex;flex-direction:column;border-radius:10px;padding:10px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.03);border:1px solid #eee;min-height:120px}
     .thumb{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}
-    .card .title{font-weight:600;margin-top:8px}
+    .card .title{font-weight:600;}
     .card .price{margin-top:6px;color:#333}
     .card .qty{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
     .card .qty .selected{font-size:13px}
@@ -68,6 +68,8 @@
     .checkout-item{display:flex;gap:8px;align-items:flex-start}
     .checkout-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
     .small{font-size:13px;color:#666}
+	
+	#current-category-title{display:none;}
 
     /* responsive: allow changing number of columns via CSS variable set by JS */
     @media (max-width:700px){:root{--left-width:90px}}
@@ -100,28 +102,28 @@
       <div class="modal" role="dialog" aria-modal="true">
         <div class="left">
           <img id="modalImage" src="" alt="product image">
-        </div>
-        <div class="right">
           <h3 id="modalTitle">Product</h3>
           <div class="desc" id="modalDesc"></div>
           <div class="row">
             <div>Unit price: <strong id="modalPrice">0.00</strong></div>
-            <div style="margin-left:auto">Total: <strong id="modalTotal">0.00</strong></div>
           </div>
+        </div>
+        <div class="right">
           <div class="row" style="margin-top:12px;align-items:center">
             <div class="qty-controls">
               <button id="decBtn">-</button>
               <div id="modalQty">1</div>
               <button id="incBtn">+</button>
             </div>
-            <div style="margin-left:12px;flex:1">
-              <input id="modalNote" placeholder="Note (e.g. no onions)" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd">
+            <div style="margin-left:auto">Total: <strong id="modalTotal">0.00</strong></div>
+          </div>		  
+          <div class="row" style="margin-top:12px;align-items:center">
+            <div style="flex:1">
+              <textarea id="modalNote" placeholder="Note" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd;height:100px;resize:none;"></textarea>
             </div>
           </div>
-
           <div style="margin-top:12px">Add-ons</div>
           <div class="addon-list" id="addonList"></div>
-
           <div style="margin-top:auto;display:flex;gap:8px;justify-content:flex-end">
             <button id="cancelModal" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff">CANCEL</button>
             <button id="confirmModal" style="padding:8px 12px;border-radius:8px;border:none;background:#0b5fff;color:#fff">CONFIRM</button>
@@ -287,32 +289,38 @@
       productsGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
       productsGrid.style.setProperty('--cols', cols);
     }
+	
+	function renderProducts(){
+	  productsGrid.innerHTML = '';
+	  const products = DATA.menu.filter(p=> currentCatIndex===0 ? true : p.category===DATA.cats[currentCatIndex].id );
+	  products.forEach(p=>{
+		const img = (DATA.images[p.image]||{}).src || '';
+		const card = document.createElement('div');
+		card.className = 'card';
+		const selectedCount = countInCart(p.id);
+		card.innerHTML = `
+		  <img src="${img}" class="thumb" data-id="${p.id}" style="width:100%;height:120px;object-fit:cover;border-radius:8px" />
+		  <div class="row" style="display:flex;align-items:center;gap:12px;margin-top:8px">
+			<div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+			  <div style="display:flex;align-items:center;gap:8px">
+				<div class="title">${p.title}</div>
+				<div class="selected">(<strong>${selectedCount}</strong>)</div>
+			  </div>
+			  <div class="price">$${p.price.toFixed(2)}</div>
+			</div>
+			<div class="qty" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+			  <div class="actions"><button data-add="${p.id}">Add</button></div>
+			</div>
+		  </div>
+		`;
+		// image click -> popup (keep it untouched)
+		card.querySelector('.thumb').addEventListener('click', ()=>openProductModal(p));
+		// add button
+		card.querySelector('button[data-add]').addEventListener('click', ()=>{ openProductModal(p, true); });
 
-    function renderProducts(){
-      productsGrid.innerHTML = '';
-      const products = DATA.menu.filter(p=> currentCatIndex===0 ? true : p.category===DATA.cats[currentCatIndex].id );
-      products.forEach(p=>{
-        const img = (DATA.images[p.image]||{}).src || '';
-        const card = document.createElement('div');
-        card.className = 'card';
-        const selectedCount = countInCart(p.id);
-        card.innerHTML = `
-          <img src="${img}" class="thumb" data-id="${p.id}" />
-          <div class="title">${p.title}</div>
-          <div class="price">$${p.price.toFixed(2)}</div>
-          <div class="qty">
-            <div class="selected">Selected: <strong>${selectedCount}</strong></div>
-            <div class="actions"><button data-add="${p.id}">Add</button></div>
-          </div>
-        `;
-        // image click -> popup
-        card.querySelector('.thumb').addEventListener('click', ()=>openProductModal(p));
-        // add button
-        card.querySelector('button[data-add]').addEventListener('click', ()=>{ openProductModal(p, true); });
-
-        productsGrid.appendChild(card);
-      });
-    }
+		productsGrid.appendChild(card);
+	  });
+	}
 
     function countInCart(prodId){
       return cart.reduce((s,it)=> it.id===prodId ? s+it.quantity : s, 0);
@@ -343,7 +351,7 @@
         if(!addon) return;
         const el = document.createElement('div');
         el.className = 'addon-item';
-        el.innerHTML = `<input type="checkbox" data-id="${addon.id}"> <div style="flex:1"><div style="font-weight:600">${addon.title}</div><div class="small">$${addon.price.toFixed(2)}</div></div>`;
+        el.innerHTML = `<input type="checkbox" style="height: 25px; width: 25px;" data-id="${addon.id}"> <div style="flex:1"><div style="font-weight:600">${addon.title}</div><div class="small">$${addon.price.toFixed(2)}</div></div>`;
         const cb = el.querySelector('input');
         cb.addEventListener('change', ()=>{
           if(cb.checked) modalState.selectedAddons.push(addon.id);
@@ -443,25 +451,41 @@
       openCheckout();
     });
 
-    function openCheckout(){
-      const listEl = document.getElementById('checkoutList');
-      listEl.innerHTML = '';
-      cart.forEach(it=>{
-        const img = (DATA.images[it.image]||{}).src || '';
-        const el = document.createElement('div');
-        el.className = 'checkout-item';
-        const addonTitles = (it.addons||[]).map(aid=>(DATA.addons.find(a=>a.id===aid)||{}).title).join(', ');
-        el.innerHTML = `<img src="${img}"><div style="flex:1"><div style="font-weight:700">${it.title} <span class="small">x${it.quantity}</span></div><div class="small">${addonTitles||''}</div><div class="small">${it.note||''}</div></div><div style="min-width:80px;text-align:right">$${it.totalprice.toFixed(2)}</div>`;
-        listEl.appendChild(el);
-      });
-      const sub = cart.reduce((s,it)=>s + it.totalprice,0);
-      const tax = +(sub * config.taxRate);
-      const tot = +(sub + tax).toFixed(2);
-      document.getElementById('subTotal').innerText = sub.toFixed(2);
-      document.getElementById('taxAmount').innerText = tax.toFixed(2);
-      document.getElementById('checkoutTotal').innerText = tot.toFixed(2);
-      checkoutOverlay.classList.add('show');
-    }
+	function openCheckout(){
+		const listEl = document.getElementById('checkoutList');
+		listEl.innerHTML = '';
+		cart.forEach(it=>{
+		const img = (DATA.images[it.image]||{}).src || '';
+		const el = document.createElement('div');
+		el.className = 'checkout-item';
+		const addonTitles = (it.addons||[]).map(aid=>(DATA.addons.find(a=>a.id===aid)||{}).title).join(', ');
+		el.innerHTML = `
+		<img src="${img}">
+		<div style="flex:1">
+		<div style="font-weight:700">${it.title} <span class="small">x${it.quantity}</span></div>
+		<div class="small">${addonTitles || ''}</div>
+		<div class="small">${it.note || ''}</div>
+		</div>
+		<div style="min-width:80px;text-align:right">$${it.totalprice.toFixed(2)}</div>
+		<button class="delete-item" data-key='${it.key}' style="margin-left:8px;padding:4px 6px;border:none;border-radius:6px;background:#ff4d4f;color:#fff;cursor:pointer">DELETE</button>
+		`;
+		el.querySelector('.delete-item').addEventListener('click', e => {
+		const key = e.currentTarget.dataset.key;
+		cart = cart.filter(item => item.key !== key);
+		openCheckout(); // refresh checkout list
+		renderProducts();
+		updateCategoryCounts();
+		});
+		listEl.appendChild(el);
+		});
+		const sub = cart.reduce((s,it)=>s + it.totalprice,0);
+		const tax = +(sub * config.taxRate);
+		const tot = +(sub + tax).toFixed(2);
+		document.getElementById('subTotal').innerText = sub.toFixed(2);
+		document.getElementById('taxAmount').innerText = tax.toFixed(2);
+		document.getElementById('checkoutTotal').innerText = tot.toFixed(2);
+		checkoutOverlay.classList.add('show');
+	}
 
     document.getElementById('closeCheckout').addEventListener('click', ()=> checkoutOverlay.classList.remove('show'));
     document.getElementById('goToPay').addEventListener('click', ()=>{
