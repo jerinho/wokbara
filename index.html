@@ -3,324 +3,429 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Self-Service Order Kiosk (Layout)</title>
+  <title>Wok & Bara</title>
   <style>
     :root{
-      --bg:#f6f7fb; --panel:#ffffff; --accent:#0b79d0; --muted:#6b7280; --danger:#ef4444;
+      --left-width:260px;
+      --gap:16px;
+      --accent:#0b76ef;
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --muted:#666;
+      --tax-rate:0.06; /* used in script */
     }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:var(--bg);color:#111}
 
-    /* overall layout */
-    .app{height:100vh;display:flex;flex-direction:column}
-    .main{flex:1;display:flex;gap:16px;padding:16px}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;color:#222;background:var(--bg)}
 
-    /* left categories column */
-    .left{width:320px;display:flex;flex-direction:column;gap:12px}
-    .categories{background:var(--panel);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;height:100%;overflow:hidden}
-    .cat-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
-    .category{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;padding:8px 10px;border-radius:10px;cursor:pointer;min-width:84px;border:1px solid transparent}
-    .category.active{background:linear-gradient(180deg,#eaf6ff,#ffffff);border-color:#d1e9ff}
-    .category img{width:52px;height:52px;object-fit:cover;border-radius:8px}
-    .category .label{font-size:13px;margin-top:6px}
-    .category .count{font-size:11px;color:var(--muted);margin-top:3px}
+    /* main 2-column layout */
+    .app{
+      display:flex;
+      height:100vh;
+      gap:var(--gap);
+      padding:var(--gap);
+      box-sizing:border-box;
+    }
 
-    /* right products column */
-    .right{flex:1;display:flex;flex-direction:column}
-    .products-panel{background:var(--panel);border-radius:12px;padding:12px;flex:1;display:flex;flex-direction:column}
-    .products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;overflow:auto;padding:8px}
-    .product{background:#fff;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:8px;align-items:start;border:1px solid #efefef}
-    .product .thumb{width:100%;aspect-ratio:1.2/1;object-fit:cover;border-radius:8px;cursor:pointer}
-    .product .info{width:100%;display:flex;justify-content:space-between;align-items:center}
-    .product .label{font-size:14px}
-    .product .price{font-weight:600}
-    .product .selected{font-size:12px;color:var(--muted);margin-top:4px}
+    /* left fixed column for categories */
+    .sidebar{
+      width:var(--left-width);
+      min-width:var(--left-width);
+      max-width:var(--left-width);
+      background:var(--card);
+      border-radius:12px;
+      padding:12px;
+      box-shadow:0 6px 20px rgba(12,20,40,0.06);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      box-sizing:border-box;
+      overflow:hidden; /* vertical unscrollable list requirement */
+    }
+
+    .categories{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .category{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border-radius:8px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .category.active{background:linear-gradient(90deg, rgba(11,118,239,0.12), rgba(11,118,239,0.06));}
+
+    .cat-thumb{width:44px;height:44px;border-radius:8px;flex-shrink:0;object-fit:cover;background:#eee}
+    .cat-meta{display:flex;flex-direction:column}
+    .cat-label{font-weight:600}
+    .cat-count{font-size:12px;color:var(--muted)}
+
+    /* main content (right) is flexible */
+    .main{
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-width:0;
+    }
+
+    /* header area (optional) */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px}
+
+    /* products grid */
+    .products-area{
+      background:var(--card);
+      border-radius:12px;
+      padding:12px;
+      box-shadow:0 6px 20px rgba(12,20,40,0.04);
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:0; /* allow inner scroll */
+    }
+
+    .products-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); /* flexible number of columns */
+      gap:12px;
+      align-items:start;
+      overflow:auto;
+      padding:4px;
+      min-height:0;
+    }
+
+    .product-card{
+      background:#fff;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 12px rgba(12,20,40,0.04);
+    }
+    .product-thumb{width:100%;height:120px;border-radius:8px;object-fit:cover;cursor:pointer}
+    .product-meta{display:flex;flex-direction:column;gap:6px}
+    .product-title{font-weight:600}
+    .product-price{font-size:14px;color:var(--muted)}
+    .product-selected{margin-top:auto;display:flex;justify-content:space-between;align-items:center}
+
+    .qty-badge{background:#eee;padding:6px 8px;border-radius:999px;font-weight:600}
 
     /* bottom bar */
-    .bottom-bar{height:72px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid #eee}
-    .summary{display:flex;gap:14px;align-items:center}
-    .summary .items{font-weight:600}
+    .bottombar{
+      height:66px;
+      display:flex;align-items:center;justify-content:space-between;padding:12px;background:linear-gradient(90deg,#ffffff, #fbfdff);border-radius:12px;box-shadow:0 -2px 12px rgba(12,20,40,0.03);
+    }
+    .bottombar .summary{display:flex;gap:18px;align-items:center}
     .checkout-btn{background:var(--accent);color:#fff;padding:12px 20px;border-radius:10px;border:none;font-weight:700;cursor:pointer}
 
-    /* modals */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
-    .modal{background:var(--panel);border-radius:12px;max-width:920px;width:100%;max-height:90vh;overflow:auto;padding:16px}
-    .modal .row{display:flex;gap:12px}
-    .modal img{max-width:320px;border-radius:8px}
-    .addon-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-    .addon{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid #f1f1f1}
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:90}
+    .modal{background:#fff;border-radius:12px;max-width:920px;width:95%;max-height:92vh;overflow:auto;padding:18px;box-shadow:0 18px 60px rgba(2,18,50,0.2)}
+    .modal-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .modal-thumb{width:100%;height:300px;object-fit:cover;border-radius:8px}
+    .modal-actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+    .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+    .btn-ghost{background:#f2f4f8}
+    .btn-primary{background:var(--accent);color:#fff}
 
-    /* checkout list */
-    .checkout-list{display:flex;flex-direction:column;gap:10px}
-    .checkout-item{display:flex;gap:10px;align-items:center;border-radius:8px;padding:8px;border:1px solid #f2f2f2}
-    .checkout-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
-    .muted{color:var(--muted);font-size:13px}
+    .addons-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+    .addon{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
 
-    /* small screens */
-    @media (max-width:900px){
-      .left{width:100%;order:2}
-      .main{flex-direction:column}
-      .right{order:1}
-      .left .categories{height:120px}
+    /* checkout modal list */
+    .checkout-list{display:flex;flex-direction:column;gap:8px}
+    .checkout-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px}
+    .checkout-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover}
+
+    /* responsiveness tweak */
+    @media (max-width:800px){
+      :root{--left-width:200px}
+      .modal-grid{grid-template-columns:1fr}
+      .modal-thumb{height:220px}
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <div class="main">
-      <aside class="left">
-        <div class="categories">
-          <div style="font-weight:700;font-size:16px">Categories</div>
-          <div class="cat-scroll" id="categories"></div>
-        </div>
-      </aside>
+    <aside class="sidebar">
+      <div style="font-weight:700;">Categories</div>
+      <div class="categories" id="categories"></div>
+      <div style="flex:1"></div>
+      <div style="font-size:12px;color:var(--muted);text-align:center">Touch a product to open options</div>
+    </aside>
 
-      <section class="right">
-        <div class="products-panel">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-weight:700;font-size:16px">Products</div>
-            <div class="muted" id="current-category">All</div>
-          </div>
-          <div class="products-grid" id="products"></div>
-        </div>
+    <main class="main">
+      <div class="topbar">
+        <div style="font-weight:700">Products</div>
+        <div style="font-size:13px;color:var(--muted)">Kiosk: Self-service</div>
+      </div>
+
+      <section class="products-area">
+        <div class="products-grid" id="productsGrid"></div>
       </section>
-    </div>
 
-    <div class="bottom-bar">
-      <div class="summary">
-        <div class="items" id="total-items">0 items</div>
-        <div class="muted" id="total-price">RM 0.00</div>
+      <div class="bottombar">
+        <div class="summary">
+          <div id="itemCount">0 items</div>
+          <div id="totalPrice">RM 0.00</div>
+        </div>
+        <div>
+          <button class="checkout-btn" id="checkoutBtn">Checkout</button>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="checkout-btn" id="checkoutBtn">Checkout</button>
-      </div>
-    </div>
+    </main>
   </div>
 
-  <!-- Product Modal -->
+  <!-- product modal -->
   <div class="modal-backdrop" id="productModal">
     <div class="modal" role="dialog" aria-modal="true">
-      <div class="row">
-        <img id="modalImage" src="" alt="product image">
-        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div id="modalLabel" style="font-weight:800;font-size:18px"></div>
-              <div class="muted" id="modalPrice">Unit: RM 0.00</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-weight:700;font-size:18px" id="modalTotal">RM 0.00</div>
-              <div class="muted" style="font-size:12px">total for product</div>
-            </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700" id="modalTitle">Product</div>
+        <button class="btn btn-ghost" onclick="closeProductModal()">CLOSE</button>
+      </div>
+      <div class="modal-grid">
+        <div>
+          <img id="modalImage" class="modal-thumb" src="" alt="">
+        </div>
+        <div>
+          <div id="modalDesc" style="color:var(--muted)"></div>
+          <div style="margin-top:10px;font-weight:700;font-size:18px" id="modalUnitPrice">RM 0.00</div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
+            <button class="btn" id="decBtn">-</button>
+            <div id="modalQty" style="min-width:36px;text-align:center;font-weight:700">1</div>
+            <button class="btn" id="incBtn">+</button>
+            <div style="margin-left:12px;color:var(--muted)">Total: <span id="modalTotalPrice">RM 0.00</span></div>
           </div>
 
-          <div id="modalDesc" class="muted">Description...</div>
-
-          <div style="display:flex;gap:8px;align-items:center">
-            <button id="decBtn">-</button>
-            <div id="modalCount">1</div>
-            <button id="incBtn">+</button>
-            <div class="muted">x unit</div>
+          <div style="margin-top:12px">
+            <label style="font-weight:700">Note</label>
+            <textarea id="modalNote" placeholder="Add note (e.g. no onion)" style="width:100%;min-height:64px;margin-top:6px;padding:8px;border-radius:8px;border:1px solid #eee"></textarea>
           </div>
 
-          <div style="margin-top:8px">
+          <div style="margin-top:12px">
             <div style="font-weight:700">Add-ons</div>
-            <div class="addon-list" id="modalAddons"></div>
+            <div class="addons-list" id="modalAddons"></div>
           </div>
 
-          <div style="margin-top:8px">
-            <div style="font-weight:700">Note (optional)</div>
-            <textarea id="modalNote" rows="3" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee"></textarea>
-          </div>
-
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-            <button id="cancelModal">CANCEL</button>
-            <button id="confirmModal" style="background:var(--accent);color:#fff;padding:8px 14px;border-radius:8px;border:none">CONFIRM</button>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeProductModal()">CANCEL</button>
+            <button class="btn btn-primary" id="confirmProductBtn">CONFIRM</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Checkout Modal -->
+  <!-- checkout modal -->
   <div class="modal-backdrop" id="checkoutModal">
     <div class="modal" role="dialog" aria-modal="true">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">Order Summary</div>
-        <button id="closeCheckout">Close</button>
+        <div style="font-weight:700">Checkout</div>
+        <button class="btn btn-ghost" onclick="closeCheckoutModal()">CLOSE</button>
       </div>
 
       <div class="checkout-list" id="checkoutList"></div>
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
-        <div class="muted">Tax (6%)</div>
-        <div class="muted" id="taxVal">RM 0.00</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-weight:800;font-size:18px">
-        <div>Total</div>
-        <div id="checkoutTotal">RM 0.00</div>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:700">Total (incl. tax)</div>
+        <div style="font-weight:800" id="checkoutTotal">RM 0.00</div>
       </div>
 
       <div style="display:flex;justify-content:flex-end;margin-top:12px">
-        <button id="doCheckout" style="background:var(--accent);color:#fff;padding:10px 16px;border-radius:8px;border:none">CHECKOUT</button>
+        <button class="btn btn-primary" onclick="finalizeCheckout()">CHECKOUT</button>
       </div>
 
-      <hr style="margin-top:10px;margin-bottom:10px">
-      <div style="color:var(--muted);font-size:13px">Checkout page: KIV (placeholder)</div>
     </div>
   </div>
 
   <script>
-    // sample data
+    /* Sample data */
+    const TAX_RATE = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tax-rate')) || 0.06;
+
     const categories = [
-      {id:1,label:'Beverages',img:'https://picsum.photos/seed/bev/80/80'},
-      {id:2,label:'Snacks',img:'https://picsum.photos/seed/snack/80/80'},
-      {id:3,label:'Meals',img:'https://picsum.photos/seed/meals/80/80'},
-      {id:4,label:'Desserts',img:'https://picsum.photos/seed/dessert/80/80'},
-      {id:5,label:'Add-ons',img:'https://picsum.photos/seed/addon/80/80'}
+      {id:'c1',label:'Burgers',img:'https://picsum.photos/seed/b1/120/120'},
+      {id:'c2',label:'Pizza',img:'https://picsum.photos/seed/p1/120/120'},
+      {id:'c3',label:'Drinks',img:'https://picsum.photos/seed/d1/120/120'},
+      {id:'c4',label:'Desserts',img:'https://picsum.photos/seed/s1/120/120'}
     ];
 
     const products = [
-      {id:'p1',cat:1,label:'Iced Latte',price:8.5,img:'https://picsum.photos/seed/latte/400/300',desc:'Cold espresso with milk',addons:[{id:'a1',label:'Extra shot',price:1.5},{id:'a2',label:'Syrup',price:0.6}]},
-      {id:'p2',cat:1,label:'Lemon Tea',price:6.0,img:'https://picsum.photos/seed/tea/400/300',desc:'Refreshing lemon tea',addons:[]},
-      {id:'p3',cat:2,label:'French Fries',price:5.0,img:'https://picsum.photos/seed/fries/400/300',desc:'Crispy fries',addons:[{id:'a3',label:'Cheese',price:1.2},{id:'a4',label:'Bacon',price:2}]},
-      {id:'p4',cat:3,label:'Chicken Rice',price:10.0,img:'https://picsum.photos/seed/chicken/400/300',desc:'Hainanese chicken rice',addons:[]},
-      {id:'p5',cat:4,label:'Chocolate Cake',price:7.5,img:'https://picsum.photos/seed/cake/400/300',desc:'Rich chocolate cake',addons:[{id:'a5',label:'Ice cream',price:2.5}]}
+      {id:'p1',cat:'c1',label:'Cheeseburger',price:9.50,img:'https://picsum.photos/seed/cheese/400/300',desc:'Juicy beef patty with cheese.',addons:[{id:'a1',label:'Extra Cheese',price:1.2},{id:'a2',label:'Bacon',price:2.5}]},
+      {id:'p2',cat:'c1',label:'Veggie Burger',price:8.00,img:'https://picsum.photos/seed/veggie/400/300',desc:'Grilled veg patty, fresh salad.',addons:[]},
+      {id:'p3',cat:'c2',label:'Margherita',price:18.00,img:'https://picsum.photos/seed/mar/400/300',desc:'Classic margherita with basil.',addons:[{id:'a3',label:'Extra Cheese',price:2},{id:'a4',label:'Olives',price:1}]},
+      {id:'p4',cat:'c3',label:'Iced Tea',price:3.50,img:'https://picsum.photos/seed/tea/400/300',desc:'Refreshing cold tea.',addons:[]},
+      {id:'p5',cat:'c4',label:'Chocolate Cake',price:6.50,img:'https://picsum.photos/seed/cake/400/300',desc:'Rich chocolate slice.',addons:[{id:'a5',label:'Vanilla Icecream',price:1.5}]}
     ];
 
-    // cart structure: {productId, qty, addons: [addonId], note}
-    const cart = [];
-    let selectedCategory = null;
+    /* cart: map productId -> {product, qty, addons: [ids], note} */
+    const cart = new Map();
+    let activeCategory = categories[0].id;
 
     function $(id){return document.getElementById(id)}
 
-    function format(v){return 'RM '+v.toFixed(2)}
+    function currency(v){return 'RM '+(v).toFixed(2)}
 
     function renderCategories(){
-      const wrap = $('categories');wrap.innerHTML='';
-      const allCount = cart.reduce((s,i)=>s+i.qty,0);
-      categories.forEach(c=>{
-        const count = cart.filter(it=>products.find(p=>p.id==it.productId).cat==c.id).reduce((s,i)=>s+i.qty,0);
-        const el = document.createElement('div');el.className='category'+(selectedCategory===c.id?' active':'');el.dataset.id=c.id;
-        el.innerHTML = `<img src="${c.img}" alt="${c.label}"><div class="label">${c.label}</div><div class="count">${count} selected</div>`;
-        el.onclick = ()=>{selectedCategory=c.id;renderProducts();renderCategories();$('current-category').textContent=c.label}
-        wrap.appendChild(el)
-      });
+      const wrap = $('categories');
+      wrap.innerHTML='';
+      categories.forEach(cat=>{
+        const el = document.createElement('div');
+        el.className = 'category' + (cat.id===activeCategory ? ' active' : '');
+        el.onclick = ()=>{activeCategory=cat.id; renderCategories(); renderProducts();};
+        el.innerHTML = `
+          <img class="cat-thumb" src="${cat.img}" alt="">
+          <div class="cat-meta">
+            <div class="cat-label">${cat.label}</div>
+            <div class="cat-count">${countSelectedForCategory(cat.id)} selected</div>
+          </div>
+        `;
+        wrap.appendChild(el);
+      })
+    }
+
+    function countSelectedForCategory(catId){
+      let sum=0;
+      cart.forEach(item=>{ if(item.product.cat===catId) sum+=item.qty })
+      return sum;
     }
 
     function renderProducts(){
-      const wrap = $('products');wrap.innerHTML='';
-      const list = selectedCategory ? products.filter(p=>p.cat===selectedCategory) : products;
+      const grid = $('productsGrid');
+      grid.innerHTML='';
+      const list = products.filter(p=>p.cat===activeCategory);
       list.forEach(p=>{
-        const count = cart.find(it=>it.productId===p.id)?.qty||0;
-        const el = document.createElement('div');el.className='product';
-        el.innerHTML = `
-          <img class="thumb" src="${p.img}" alt="${p.label}" data-id="${p.id}">
-          <div style="width:100%">
-            <div class="info">
-              <div class="label">${p.label}</div>
-              <div class="price">${format(p.price)}</div>
+        const card = document.createElement('div');
+        card.className='product-card';
+        const inCart = cart.get(p.id);
+        const selectedCount = inCart ? inCart.qty : 0;
+        card.innerHTML = `
+          <img class="product-thumb" src="${p.img}" alt="" onclick="openProductModal('${p.id}')">
+          <div class="product-meta">
+            <div class="product-title">${p.label}</div>
+            <div class="product-price">${currency(p.price)}</div>
+            <div class="product-selected">
+              <div style="font-size:13px;color:var(--muted)">Total: <strong>${selectedCount}</strong></div>
+              <div></div>
             </div>
-            <div class="selected">${count} selected</div>
           </div>
         `;
-        el.querySelector('.thumb').onclick = ()=>openProductModal(p.id)
-        wrap.appendChild(el)
+        grid.appendChild(card);
       })
     }
 
-    function updateBottom(){
-      const items = cart.reduce((s,i)=>s+i.qty,0);
-      const subtotal = cart.reduce((s,it)=>{
-        const p = products.find(pp=>pp.id===it.productId);
-        const addonsSum = (it.addons||[]).reduce((sa,aId)=>{const a = p.addons.find(x=>x.id===aId);return sa + (a? a.price:0)},0);
-        return s + (p.price + addonsSum)*it.qty
+    function updateBottomBar(){
+      let items=0; let total=0;
+      cart.forEach(it=>{ items+=it.qty; total += itemTotal(it) });
+      $('itemCount').textContent = items + (items===1 ? ' item' : ' items');
+      $('totalPrice').textContent = currency(total);
+      $('checkoutBtn').disabled = items===0;
+    }
+
+    function itemTotal(cartItem){
+      const base = cartItem.product.price * cartItem.qty;
+      const addonsSum = (cartItem.addons||[]).reduce((s,aid)=>{
+        const ad = cartItem.product.addons.find(a=>a.id===aid);
+        return s + (ad?ad.price:0);
       },0);
-      $('total-items').textContent = items + ' items';
-      $('total-price').textContent = format(subtotal);
+      return base + addonsSum * cartItem.qty;
     }
 
-    // -------- product modal logic --------
-    let currentModalProduct = null;
-    function openProductModal(pid){
-      const p = products.find(x=>x.id===pid);currentModalProduct={...p,count:1,addons:[]};
-      $('modalImage').src=p.img;$('modalLabel').textContent=p.label;$('modalPrice').textContent='Unit: '+format(p.price);
-      $('modalDesc').textContent=p.desc;$('modalCount').textContent='1';updateModalTotal();
+    /* product modal logic */
+    let modalState = null; // {product, qty, selectedAddons:[],note}
+    function openProductModal(productId){
+      const p = products.find(x=>x.id===productId);
+      const inCart = cart.get(productId);
+      modalState = {product:p, qty: inCart ? inCart.qty : 1, selectedAddons: inCart ? [...inCart.addons] : [], note: inCart ? inCart.note : ''};
+      $('modalTitle').textContent = p.label;
+      $('modalImage').src = p.img;
+      $('modalDesc').textContent = p.desc;
+      $('modalUnitPrice').textContent = currency(p.price);
+      $('modalQty').textContent = modalState.qty;
+      $('modalNote').value = modalState.note || '';
       renderModalAddons();
+      updateModalTotal();
       $('productModal').style.display='flex';
+      $('incBtn').onclick = ()=>{ modalState.qty++; $('modalQty').textContent=modalState.qty; updateModalTotal(); }
+      $('decBtn').onclick = ()=>{ if(modalState.qty>1) modalState.qty--; $('modalQty').textContent=modalState.qty; updateModalTotal(); }
+      $('confirmProductBtn').onclick = confirmProductFromModal;
     }
-    function closeProductModal(){currentModalProduct=null;$('productModal').style.display='none'}
-
-    function updateModalTotal(){
-      if(!currentModalProduct) return;
-      const p = currentModalProduct;
-      const addonsSum = p.addons.reduce((s,aId)=>{const a = products.find(pp=>pp.id===p.id).addons.find(x=>x.id===aId);return s + (a? a.price:0)},0);
-      const total = (p.price + addonsSum)*p.count;
-      $('modalTotal').textContent = format(total);
-    }
-
-    $('incBtn').addEventListener('click',()=>{currentModalProduct.count++;$('modalCount').textContent=currentModalProduct.count;updateModalTotal()})
-    $('decBtn').addEventListener('click',()=>{if(currentModalProduct.count>1) currentModalProduct.count--;$('modalCount').textContent=currentModalProduct.count;updateModalTotal()})
-    $('cancelModal').addEventListener('click',()=>closeProductModal())
 
     function renderModalAddons(){
-      const list = $('modalAddons');list.innerHTML='';
-      const p = products.find(pp=>pp.id===currentModalProduct.id);
-      if(!p.addons || p.addons.length===0){list.innerHTML='<div class="muted">No add-ons</div>';return}
-      p.addons.forEach(a=>{
-        const el = document.createElement('div');el.className='addon';
-        const checked = currentModalProduct.addons.includes(a.id);
-        el.innerHTML = `<div><label><input type="checkbox" data-aid="${a.id}" ${checked? 'checked':''}> ${a.label}</label></div><div>${format(a.price)}</div>`;
-        el.querySelector('input').addEventListener('change',(e)=>{
-          if(e.target.checked) currentModalProduct.addons.push(a.id); else currentModalProduct.addons = currentModalProduct.addons.filter(x=>x!==a.id);
-          updateModalTotal();
-        })
-        list.appendChild(el)
+      const wrap = $('modalAddons'); wrap.innerHTML='';
+      const list = modalState.product.addons || [];
+      if(list.length===0){ wrap.innerHTML = '<div style="color:var(--muted);font-size:13px">No addons</div>'; return }
+      list.forEach(a=>{
+        const row = document.createElement('label'); row.className='addon';
+        const checked = modalState.selectedAddons.includes(a.id) ? 'checked' : '';
+        row.innerHTML = `<div><input type=checkbox ${checked} onchange="toggleAddon('${a.id}')"> ${a.label}</div><div>${currency(a.price)}</div>`;
+        wrap.appendChild(row);
       })
     }
 
-    $('confirmModal').addEventListener('click',()=>{
-      // add to cart
-      const existing = cart.find(it=>it.productId===currentModalProduct.id && JSON.stringify(it.addons||[])===JSON.stringify(currentModalProduct.addons) && (it.note||'')===( $('modalNote').value || '' ));
-      if(existing){ existing.qty += currentModalProduct.count; }
-      else{ cart.push({productId: currentModalProduct.id, qty: currentModalProduct.count, addons: [...currentModalProduct.addons], note: $('modalNote').value || '' }) }
-      closeProductModal();renderProducts();renderCategories();updateBottom();
-    })
+    function toggleAddon(addonId){
+      const idx = modalState.selectedAddons.indexOf(addonId);
+      if(idx===-1) modalState.selectedAddons.push(addonId); else modalState.selectedAddons.splice(idx,1);
+      updateModalTotal();
+    }
 
-    // -------- checkout modal logic --------
-    $('checkoutBtn').addEventListener('click',()=>{
-      renderCheckout();$('checkoutModal').style.display='flex'
-    })
-    $('closeCheckout').addEventListener('click',()=>{$('checkoutModal').style.display='none'})
+    function updateModalTotal(){
+      const unit = modalState.product.price;
+      const addonsSum = (modalState.product.addons||[]).filter(a=>modalState.selectedAddons.includes(a.id)).reduce((s,a)=>s+a.price,0);
+      const total = (unit + addonsSum) * modalState.qty;
+      $('modalTotalPrice').textContent = currency(total);
+    }
 
-    function renderCheckout(){
-      const wrap = $('checkoutList');wrap.innerHTML='';
+    function closeProductModal(){ $('productModal').style.display='none'; modalState=null }
+
+    function confirmProductFromModal(){
+      const p = modalState.product;
+      const entry = {product:p, qty:modalState.qty, addons:[...modalState.selectedAddons], note: $('modalNote').value || ''};
+      cart.set(p.id, entry);
+      closeProductModal();
+      renderCategories(); renderProducts(); updateBottomBar();
+    }
+
+    /* Checkout modal */
+    function openCheckoutModal(){
+      const wrap = $('checkoutList'); wrap.innerHTML='';
+      let subtotal=0;
       cart.forEach(it=>{
-        const p = products.find(x=>x.id===it.productId);
-        const addonsText = (it.addons||[]).map(aid=>p.addons.find(a=>a.id===aid)?.label).filter(Boolean).join(', ');
-        const el = document.createElement('div');el.className='checkout-item';
-        el.innerHTML = `<img src="${p.img}" alt="${p.label}"><div style="flex:1"><div style="font-weight:700">${p.label}</div><div class="muted">${it.qty} x ${format(p.price)}${addonsText? ' • '+addonsText:''}</div>${it.note? '<div class="muted">Note: '+it.note+'</div>':''}</div><div style="font-weight:700">${format((p.price + (it.addons||[]).reduce((s,aId)=>{const a = p.addons.find(x=>x.id===aId);return s + (a? a.price:0)},0))*it.qty)}</div>`;
-        wrap.appendChild(el)
+        const el = document.createElement('div'); el.className='checkout-item';
+        const addonsText = (it.addons||[]).map(aid=>{ const a = it.product.addons.find(x=>x.id===aid); return a? a.label+" ("+currency(a.price)+")":"" }).join(', ');
+        el.innerHTML = `
+          <img class="checkout-thumb" src="${it.product.img}">
+          <div style="flex:1">
+            <div style="font-weight:700">${it.product.label} <span style="font-weight:600;color:var(--muted)">x ${it.qty}</span></div>
+            <div style="font-size:13px;color:var(--muted)">${addonsText || ''}</div>
+            <div style="font-size:13px;color:var(--muted)">Note: ${it.note || '-'}</div>
+          </div>
+          <div style="font-weight:800">${currency(itemTotal(it))}</div>
+        `;
+        wrap.appendChild(el);
+        subtotal += itemTotal(it);
       })
-
-      const subtotal = cart.reduce((s,it)=>{
-        const p = products.find(pp=>pp.id===it.productId);
-        const addonsSum = (it.addons||[]).reduce((sa,aId)=>{const a = p.addons.find(x=>x.id===aId);return sa + (a? a.price:0)},0);
-        return s + (p.price + addonsSum)*it.qty
-      },0);
-      const tax = subtotal * 0.06; // 6%
-      $('taxVal').textContent = format(tax);
-      $('checkoutTotal').textContent = format(subtotal + tax);
+      const tax = subtotal * TAX_RATE;
+      const total = subtotal + tax;
+      $('checkoutTotal').textContent = currency(total);
+      $('checkoutModal').style.display='flex';
     }
 
-    $('doCheckout').addEventListener('click',()=>{
-      // For now, just placeholder for actual checkout page (KIV)
-      alert('Proceed to checkout page (KIV)')
+    function closeCheckoutModal(){ $('checkoutModal').style.display='none' }
+
+    function finalizeCheckout(){
+      // placeholder behavior - Checkout page KIV
+      alert('Checkout flow is KIV (keep in view).\nOrder summary shown here.');
+    }
+
+    /* wire checkout button */
+    $('checkoutBtn').addEventListener('click', openCheckoutModal);
+
+    /* initialize */
+    renderCategories(); renderProducts(); updateBottomBar();
+
+    // allow clicking backdrop to close modals
+    document.querySelectorAll('.modal-backdrop').forEach(b=>{
+      b.addEventListener('click', (e)=>{ if(e.target===b) b.style.display='none' })
     })
-
-    // initial render
-    renderCategories();renderProducts();updateBottom();
-
   </script>
 </body>
 </html>
