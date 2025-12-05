@@ -3,371 +3,493 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Self-Service Order Kiosk</title>
+  <title>Wok & Bara</title>
   <style>
-    :root{--sidebar-width:260px;--gap:12px;--accent:#0b79f7;--bg:#f6f7fb}
-    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
-    html,body,#app{height:100%;margin:0;background:var(--bg)}
-    #app{display:flex;flex-direction:column}
-    .main{flex:1;display:flex;gap:var(--gap);padding:12px}
+    :root{
+      --left-width: 260px; /* fixed left column width */
+      --card-max-width: 240px; /* default card max width (can be overridden by JS) */
+      --gap: 12px;
+      --bottom-height: 72px;
+      --popup-width: 620px; /* fixed popup width */
+      --tax-rate: 0.07; /* example tax */
+    }
+    *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
+    html,body,#app{height:100%;margin:0}
+    body{display:flex;flex-direction:column;background:#f6f7fb}
 
-    /* LEFT: Categories (fixed width, vertical unscrollable list) */
-    .sidebar{width:var(--sidebar-width);background:#fff;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
-    .cats{display:flex;flex-direction:column;gap:8px;overflow:hidden}
-    .cat{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
-    .cat.active{background:linear-gradient(90deg, rgba(11,121,247,0.06), rgba(11,121,247,0.02));border-color:rgba(11,121,247,0.12)}
-    .cat img{width:44px;height:44px;object-fit:cover;border-radius:6px}
-    .cat .meta{display:flex;flex-direction:column}
-    .cat .meta .title{font-weight:600}
-    .cat .meta .sub{font-size:12px;color:#666}
-    .cat .badge{margin-left:auto;background:#eee;padding:4px 8px;border-radius:999px;font-size:12px}
+    /* main layout */
+    .container{display:grid;grid-template-columns:var(--left-width) 1fr;gap:var(--gap);padding:var(--gap);height:calc(100vh - var(--bottom-height));}
 
-    /* RIGHT: Products grid */
-    .content{flex:1;display:flex;flex-direction:column;gap:12px}
-    .grid-wrap{flex:1;overflow:auto}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-    .card{background:#fff;padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
-    .thumb{width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer}
-    .card .row{display:flex;align-items:center;gap:8px}
-    .card .title{font-weight:600}
-    .card .price{margin-left:auto;font-weight:700}
-    .small-badge{font-size:12px;color:#333;background:#f3f4f6;padding:4px 6px;border-radius:6px}
+    /* left column: vertical unscrollable listview */
+    .categories{background:#fff;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .cat-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer}
+    .cat-item img{width:44px;height:44px;object-fit:cover;border-radius:8px}
+    .cat-item .meta{flex:1;display:flex;flex-direction:column}
+    .cat-item .meta .title{font-weight:600}
+    .cat-item .count{font-weight:700;min-width:28px;text-align:right}
+    .cat-item.active{background:#eef2ff}
+
+    /* right: gridview of products */
+    .products-area{background:#fff;border-radius:10px;padding:12px;overflow:auto}
+    .products-grid{display:grid;grid-gap:12px;align-content:start}
+
+    /* product card */
+    .card{display:flex;flex-direction:column;border-radius:10px;padding:10px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.03);border:1px solid #eee;min-height:120px}
+    .thumb{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}
+    .card .title{font-weight:600;margin-top:8px}
+    .card .price{margin-top:6px;color:#333}
+    .card .qty{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
+    .card .qty .selected{font-size:13px}
+    .card .actions button{padding:6px 8px;border-radius:6px;border:none;background:#0b5fff;color:#fff;cursor:pointer}
 
     /* bottom bar */
-    .bottombar{height:64px;background:#fff;border-radius:8px;padding:10px;display:flex;align-items:center;gap:12px}
-    .summary{display:flex;flex-direction:column}
-    .summary .big{font-weight:700;font-size:18px}
-    .checkout-btn{margin-left:auto;background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer}
+    .bottom-bar{height:var(--bottom-height);display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-top:1px solid #eee}
+    .summary{display:flex;gap:18px;align-items:center}
+    .checkout-btn{padding:12px 18px;border-radius:10px;border:none;background:#0b5fff;color:#fff;font-weight:700;cursor:pointer}
 
-    /* modals */
+    /* modal / popup */
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;padding:20px}
     .overlay.show{display:flex}
-    .modal{background:#fff;border-radius:10px;max-width:840px;width:100%;max-height:90vh;overflow:auto;padding:18px}
-    .modal .top{display:flex;gap:16px}
-    .modal .bigimg{width:320px;height:320px;object-fit:cover;border-radius:8px}
-    .modal .right{flex:1;display:flex;flex-direction:column;gap:8px}
-    .addons-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
-    .addon{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
-    .qty-controls{display:flex;align-items:center;gap:8px}
-    .btn{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
-    .btn.primary{background:var(--accent);color:#fff;border:none}
+    .modal{width:var(--popup-width);max-width:calc(100% - 40px);background:#fff;border-radius:12px;padding:18px;display:flex;gap:14px}
+    .modal .left{width:320px}
+    .modal img{width:100%;height:auto;border-radius:8px;object-fit:cover}
+    .modal .right{flex:1;display:flex;flex-direction:column}
+    .modal .right h3{margin:0}
+    .modal .right .desc{margin-top:6px;color:#555}
+    .modal .right .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .qty-controls{display:flex;gap:8px;align-items:center}
+    .qty-controls button{width:36px;height:36px;border-radius:8px;border:none;background:#eee;cursor:pointer}
+    .addon-list{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:160px;overflow:auto}
+    .addon-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
 
-    /* checkout list */
-    .checkout-list{display:flex;flex-direction:column;gap:8px}
-    .checkout-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px;background:#fff}
+    /* checkout modal */
+    .checkout-modal{width:640px;max-width:calc(100% - 40px)}
+    .checkout-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding:10px}
+    .checkout-item{display:flex;gap:8px;align-items:flex-start}
     .checkout-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
-    .tax-row{display:flex;justify-content:space-between;font-weight:700}
+    .small{font-size:13px;color:#666}
 
-    /* responsive tweaks */
-    @media (max-width:880px){:root{--sidebar-width:160px}}
-    @media (max-width:640px){.main{flex-direction:column}.sidebar{width:100%;order:2}.content{order:1}}
+    /* responsive: allow changing number of columns via CSS variable set by JS */
+    @media (max-width:700px){:root{--left-width:90px}}
   </style>
 </head>
 <body>
   <div id="app">
-    <div class="main">
-      <aside class="sidebar">
-        <div style="font-weight:800">Categories</div>
-        <div class="cats" id="cats"></div>
-      </aside>
-
-      <section class="content">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-weight:800;font-size:18px">Menu</div>
-          <div id="selectedCategoryTitle" style="color:#666">All</div>
+    <div class="container">
+      <aside class="categories" id="cats"></aside>
+      <main class="products-area">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><strong id="current-category-title">All</strong></div>
         </div>
-
-        <div class="grid-wrap"><div class="grid" id="products"></div></div>
-
-      </section>
+        <div class="products-grid" id="productsGrid"></div>
+      </main>
     </div>
 
-    <div style="padding:12px">
-      <div class="bottombar">
-        <div class="summary">
-          <div id="itemCount">0 items</div>
-          <div class="big" id="totalPrice">0.00</div>
-        </div>
-        <button class="checkout-btn" id="checkoutBtn">Checkout</button>
+    <div class="bottom-bar">
+      <div class="summary">
+        <div class="small">Items: <strong id="totalCount">0</strong></div>
+        <div class="small">Total: <strong id="totalPrice">0.00</strong></div>
+      </div>
+      <div>
+        <button class="checkout-btn" id="checkoutBtn">CHECKOUT</button>
       </div>
     </div>
-  </div>
 
-  <!-- product modal -->
-  <div class="overlay" id="productModal">
-    <div class="modal" role="dialog">
-      <div class="top">
-        <img id="pmImg" class="bigimg" src="" alt="product">
+    <!-- product popup -->
+    <div class="overlay" id="productOverlay">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="left">
+          <img id="modalImage" src="" alt="product image">
+        </div>
         <div class="right">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div id="pmTitle" style="font-weight:800;font-size:20px"></div>
-              <div id="pmDesc" style="color:#666;font-size:13px;margin-top:6px"></div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:18px;font-weight:800" id="pmUnit">0.00</div>
-              <div style="font-size:12px;color:#666">unit price</div>
-            </div>
+          <h3 id="modalTitle">Product</h3>
+          <div class="desc" id="modalDesc"></div>
+          <div class="row">
+            <div>Unit price: <strong id="modalPrice">0.00</strong></div>
+            <div style="margin-left:auto">Total: <strong id="modalTotal">0.00</strong></div>
           </div>
-
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <div class="row" style="margin-top:12px;align-items:center">
             <div class="qty-controls">
-              <button class="btn" id="pmMinus">-</button>
-              <div id="pmQty">1</div>
-              <button class="btn" id="pmPlus">+</button>
+              <button id="decBtn">-</button>
+              <div id="modalQty">1</div>
+              <button id="incBtn">+</button>
             </div>
-            <div style="text-align:right">
-              <div style="font-weight:700">Total</div>
-              <div id="pmTotal">0.00</div>
+            <div style="margin-left:12px;flex:1">
+              <input id="modalNote" placeholder="Note (e.g. no onions)" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd">
             </div>
           </div>
 
-          <div style="margin-top:12px">
-            <label>Note</label>
-            <input id="pmNote" placeholder="Add note" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd;margin-top:6px" />
-          </div>
+          <div style="margin-top:12px">Add-ons</div>
+          <div class="addon-list" id="addonList"></div>
 
-          <div style="margin-top:12px">
-            <div style="font-weight:700">Add-ons</div>
-            <div class="addons-list" id="pmAddons"></div>
+          <div style="margin-top:auto;display:flex;gap:8px;justify-content:flex-end">
+            <button id="cancelModal" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff">CANCEL</button>
+            <button id="confirmModal" style="padding:8px 12px;border-radius:8px;border:none;background:#0b5fff;color:#fff">CONFIRM</button>
           </div>
-
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn" id="pmCancel">CANCEL</button>
-            <button class="btn primary" id="pmConfirm">CONFIRM</button>
-          </div>
-
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- checkout modal -->
-  <div class="overlay" id="checkoutModal">
-    <div class="modal" style="max-width:760px">
-      <h3>Checkout</h3>
-      <div class="checkout-list" id="checkoutList"></div>
-      <div style="margin-top:12px">
-        <div class="tax-row"><div>Subtotal</div><div id="coSubtotal">0.00</div></div>
-        <div class="tax-row"><div>Tax (<span id="taxRateLabel"></span>)</div><div id="coTax">0.00</div></div>
-        <div class="tax-row" style="font-size:20px;margin-top:8px"><div>Total</div><div id="coTotal">0.00</div></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
-        <div></div>
-        <div>
-          <button class="btn" id="coClose">CLOSE</button>
-          <button class="btn primary" id="coCheckout">CHECKOUT</button>
+    <!-- checkout overlay -->
+    <div class="overlay" id="checkoutOverlay">
+      <div class="modal checkout-modal">
+        <div style="flex:1;display:flex;flex-direction:column;height:80vh">
+          <h3>Order summary</h3>
+          <div class="checkout-list" id="checkoutList"></div>
+          <div style="margin-top:auto;padding-top:10px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="small">Subtotal: <strong id="subTotal">0.00</strong></div>
+              <div class="small">Tax (<span id="taxRate">0%</span>): <strong id="taxAmount">0.00</strong></div>
+              <div class="small">Total: <strong id="checkoutTotal">0.00</strong></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <button id="goToPay" class="checkout-btn">CHECKOUT</button>
+              <button id="closeCheckout" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff">CANCEL</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- final qr page modal -->
-  <div class="overlay" id="qrModal">
-    <div class="modal" style="max-width:420px;text-align:center">
-      <h3>Pay with QR</h3>
-      <img id="qrImg" src="" alt="qr" style="width:260px;height:260px;object-fit:contain" />
-      <div style="margin-top:12px;font-size:14px;color:#666">Scan to pay</div>
+    <!-- payment / qr overlay -->
+    <div class="overlay" id="payOverlay">
+      <div class="modal checkout-modal">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px">
+          <h3>Scan to Pay</h3>
+          <img id="qrImage" alt="qr code" style="width:220px;height:220px;background:#eee;border-radius:12px">
+          <div class="small">Show this QR to complete payment.</div>
+          <div style="margin-top:auto;display:flex;gap:8px">
+            <button id="closePay" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff">CLOSE</button>
+            <button id="clearCart" style="padding:8px 12px;border-radius:8px;border:none;background:#ff4d4f;color:#fff">CLEAR CART</button>
+          </div>
+        </div>
+      </div>
     </div>
+
   </div>
 
   <script>
-    // Data placeholders
-    let images = [];
-    let cats = [];
-    let addons = [];
-    let menu = [];
-    const taxRate = 0.06; // changeable if needed
+    /* Configuration parameters (modifiable) */
+    const config = {
+      maxColumns: 4,      // maximum number of columns
+      cardMaxWidth: 240,  // card max width in px
+      taxRate: 0.07       // tax percentage (0.07 = 7%)
+    };
 
-    // Cart structure: array of entries {id, addons:[id], note, quantity, unitPrice}
+    document.documentElement.style.setProperty('--card-max-width', config.cardMaxWidth + 'px');
+    document.documentElement.style.setProperty('--tax-rate', config.taxRate);
+    document.getElementById('taxRate').innerText = (config.taxRate*100).toFixed(0) + '%';
+
+    // elements
+    const catsEl = document.getElementById('cats');
+    const productsGrid = document.getElementById('productsGrid');
+    const totalCountEl = document.getElementById('totalCount');
+    const totalPriceEl = document.getElementById('totalPrice');
+    const currentCategoryTitle = document.getElementById('current-category-title');
+
+    // overlays
+    const productOverlay = document.getElementById('productOverlay');
+    const checkoutOverlay = document.getElementById('checkoutOverlay');
+    const payOverlay = document.getElementById('payOverlay');
+
+    // modal fields
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalPrice = document.getElementById('modalPrice');
+    const modalTotal = document.getElementById('modalTotal');
+    const modalQty = document.getElementById('modalQty');
+    const addonList = document.getElementById('addonList');
+    const modalNote = document.getElementById('modalNote');
+
+    // cart storage: array of items {id, quantity, addons:[], note, price, title, image}
     let cart = [];
 
-    // Load menu data on start
+    // store menu data
+    let DATA = {images:[],cats:[],addons:[],menu:[]};
+    let currentCatIndex = null;
+
+    // fetch menu data on load (expects JSON at /menu.json). fallback to sample data.
     async function loadData(){
       try{
-        // attempt to fetch /menu.json
-        const res = await fetch('/menu.json');
-        if(!res.ok) throw new Error('no menu.json');
-        const d = await res.json();
-        images = d.images||[]; cats = d.cats||[]; addons = d.addons||[]; menu = d.menu||[];
+        const resp = await fetch('/menu.json');
+        if(!resp.ok) throw new Error('no menu.json');
+        const j = await resp.json();
+        DATA = j;
       }catch(e){
-        // fallback sample data
-        images = [{id:1,src:'https://picsum.photos/seed/1/600/400'},{id:2,src:'https://picsum.photos/seed/2/600/400'},{id:3,src:'https://picsum.photos/seed/3/600/400'}];
-        cats = [{id:1,title:'Hot Drinks',description:'Warm beverages',image:1},{id:2,title:'Cold Drinks',description:'Icy & refreshing',image:2},{id:3,title:'Snacks',description:'Light bites',image:3}];
-        addons = [{id:11,title:'Extra Shot',description:'Add espresso shot',price:0.8,image:1},{id:12,title:'Syrup',description:'Vanilla',price:0.5,image:2}];
-        menu = [{id:101,title:'Americano',description:'Classic',price:3.5,image:1,category:0,addons:[11]},{id:102,title:'Iced Tea',description:'Lemon',price:2.8,image:2,category:1,addons:[12]},{id:103,title:'Cookie',description:'Chocolate chip',price:1.6,image:3,category:2,addons:[]}];
+        console.warn('fetch menu.json failed, using sample data', e);
+        DATA = sampleData();
       }
-      renderCats();
+
+      renderCategories();
+      setGridColumns();
       renderProducts();
-      document.getElementById('taxRateLabel').textContent = (taxRate*100).toFixed(0)+"%";
+      window.addEventListener('resize', setGridColumns);
     }
 
-    function imgById(id){const f=images.find(x=>x.id===id);return f?f.src:''}
+    function sampleData(){
+      return {
+        images:[
+          {id:0,src:'https://picsum.photos/seed/1/800/600'},
+          {id:1,src:'https://picsum.photos/seed/2/800/600'},
+          {id:2,src:'https://picsum.photos/seed/3/800/600'}
+        ],
+        cats:[
+          {id:0,title:'All',description:'All items',image:0},
+          {id:1,title:'Burgers',description:'Tasty burgers',image:1},
+          {id:2,title:'Drinks',description:'Cold drinks',image:2}
+        ],
+        addons:[
+          {id:10,title:'Cheese',description:'Extra cheese',price:0.8,image:0},
+          {id:11,title:'Bacon',description:'Crispy bacon',price:1.2,image:0}
+        ],
+        menu:[
+          {id:100,title:'Classic Burger',description:'Beef patty',price:6.5,image:1,category:1,addons:[10,11]},
+          {id:101,title:'Veggie Burger',description:'Plant based',price:6.0,image:1,category:1,addons:[10]},
+          {id:200,title:'Coke',description:'330ml',price:1.8,image:2,category:2,addons:[]}
+        ]
+      }
+    }
 
-    // RENDERING
-    let selectedCategory = null; // index in cats array
-    function renderCats(){
-      const el = document.getElementById('cats'); el.innerHTML = '';
-      cats.forEach((c,idx)=>{
-        const div = document.createElement('div'); div.className='cat'+(selectedCategory===idx?' active':''); div.dataset.idx=idx;
-        div.innerHTML = `<img src="${imgById(c.image)||''}" alt=""><div class="meta"><div class="title">${c.title}</div><div class="sub">${c.description||''}</div></div><div class="badge" id="cat-badge-${idx}">0</div>`;
-        div.addEventListener('click',()=>{selectedCategory = idx; document.getElementById('selectedCategoryTitle').textContent = c.title; renderCats(); renderProducts();});
-        el.appendChild(div);
+    function renderCategories(){
+      catsEl.innerHTML = '';
+      DATA.cats.forEach((c,idx)=>{
+        const imgSrc = (DATA.images[c.image]||{}).src || '';
+        const el = document.createElement('div');
+        el.className = 'cat-item' + (idx===0 ? ' active' : '');
+        el.dataset.idx = idx;
+        el.innerHTML = `
+          <img src="${imgSrc}" alt="${c.title}">
+          <div class="meta"><div class="title">${c.title}</div><div class="small">${c.description||''}</div></div>
+          <div class="count" data-count>0</div>
+        `;
+        el.addEventListener('click', ()=>{selectCategory(idx)});
+        catsEl.appendChild(el);
       });
-      // All categories selector
-      const all = document.createElement('div'); all.className='cat'+(selectedCategory===null?' active':''); all.style.marginTop='6px'; all.innerHTML = `<img src="https://picsum.photos/seed/all/80/80" style="width:44px;height:44px;border-radius:6px"><div class="meta"><div class="title">All</div><div class="sub">Show all</div></div><div class="badge">&nbsp;</div>`;
-      all.addEventListener('click',()=>{selectedCategory=null; document.getElementById('selectedCategoryTitle').textContent='All'; renderCats(); renderProducts();});
-      el.insertBefore(all, el.firstChild);
+      // default select first (All)
+      currentCatIndex = 0;
+      updateCategoryCounts();
+    }
+
+    function selectCategory(idx){
+      currentCatIndex = idx;
+      Array.from(catsEl.children).forEach((ch)=>ch.classList.toggle('active', +ch.dataset.idx===idx));
+      const title = DATA.cats[idx] ? DATA.cats[idx].title : 'All';
+      currentCategoryTitle.innerText = title;
+      renderProducts();
+    }
+
+    function setGridColumns(){
+      const containerWidth = document.querySelector('.products-area').clientWidth - 24;
+      const colWidth = Math.min(config.cardMaxWidth, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-max-width'))||config.cardMaxWidth);
+      let cols = Math.floor(containerWidth / (colWidth + 12));
+      cols = Math.max(1, Math.min(cols, config.maxColumns));
+      productsGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+      productsGrid.style.setProperty('--cols', cols);
     }
 
     function renderProducts(){
-      const el = document.getElementById('products'); el.innerHTML = '';
-      const list = menu.map((m,idx)=>({m,idx})).filter(x=> selectedCategory===null ? true : x.m.category===selectedCategory);
-      list.forEach(({m,idx})=>{
-        const div = document.createElement('div'); div.className='card';
-        const thumb = imgById(m.image)||'';
-        div.innerHTML = `<img class="thumb" src="${thumb}" data-id="${m.id}"><div style="display:flex;align-items:center"><div class="title">${m.title}</div><div class="price">${m.price.toFixed(2)}</div></div><div style="display:flex;gap:8px;align-items:center"><div class="small-badge">${m.description||''}</div><div style="margin-left:auto" id="prod-count-${m.id}"></div></div>`;
-        // image click opens modal
-        div.querySelector('.thumb').addEventListener('click',()=>openProductModal(m));
-        el.appendChild(div);
-      });
-      updateBadges();
-    }
+      productsGrid.innerHTML = '';
+      const products = DATA.menu.filter(p=> currentCatIndex===0 ? true : p.category===DATA.cats[currentCatIndex].id );
+      products.forEach(p=>{
+        const img = (DATA.images[p.image]||{}).src || '';
+        const card = document.createElement('div');
+        card.className = 'card';
+        const selectedCount = countInCart(p.id);
+        card.innerHTML = `
+          <img src="${img}" class="thumb" data-id="${p.id}" />
+          <div class="title">${p.title}</div>
+          <div class="price">$${p.price.toFixed(2)}</div>
+          <div class="qty">
+            <div class="selected">Selected: <strong>${selectedCount}</strong></div>
+            <div class="actions"><button data-add="${p.id}">Add</button></div>
+          </div>
+        `;
+        // image click -> popup
+        card.querySelector('.thumb').addEventListener('click', ()=>openProductModal(p));
+        // add button
+        card.querySelector('button[data-add]').addEventListener('click', ()=>{ openProductModal(p, true); });
 
-    // CART HELPERS
-    function makeKey(entry){ // unique by id x addons x note
-      const a = (entry.addons||[]).slice().sort((a,b)=>a-b).join(',');
-      const n = (entry.note||'').trim();
-      return `${entry.id}::${a}::${n}`;
-    }
-
-    function findCartEntryIndex(entry){
-      const key = makeKey(entry);
-      return cart.findIndex(c=>makeKey(c)===key);
-    }
-
-    function addToCart(entry){
-      const idx = findCartEntryIndex(entry);
-      if(idx>-1){ cart[idx].quantity += entry.quantity; }
-      else cart.push(Object.assign({},entry));
-      refreshUI();
-    }
-
-    function updateBadges(){
-      // per category totals
-      const perCat = cats.map(()=>0);
-      cart.forEach(it=>{
-        const m = menu.find(x=>x.id===it.id);
-        if(m && typeof m.category!=='undefined' && m.category!==null) perCat[m.category] += it.quantity;
-      });
-      perCat.forEach((v,i)=>{ const el = document.getElementById('cat-badge-'+i); if(el) el.textContent = v>0?v:''});
-      // product counts
-      menu.forEach(m=>{
-        const total = cart.filter(c=>c.id===m.id).reduce((s,x)=>s+x.quantity,0);
-        const el = document.getElementById('prod-count-'+m.id);
-        if(el) el.textContent = total?`${total} selected`:'';
+        productsGrid.appendChild(card);
       });
     }
 
-    function refreshUI(){
-      // update bottom bar
-      const totalQ = cart.reduce((s,x)=>s+x.quantity,0);
-      const totalP = cart.reduce((s,x)=>{
-        const unit = x.unitPrice||0; const addonsTotal = (x.addons||[]).reduce((aa,id)=>{const ad = addons.find(a=>a.id===id); return aa + (ad?ad.price:0)},0);
-        return s + (unit + addonsTotal) * x.quantity;
+    function countInCart(prodId){
+      return cart.reduce((s,it)=> it.id===prodId ? s+it.quantity : s, 0);
+    }
+
+    // product modal logic
+    let modalState = {product:null,qty:1,selectedAddons:[],note:''};
+    function openProductModal(product, quickAdd=false){
+      modalState.product = product;
+      modalState.qty = quickAdd ? 1 : 1;
+      modalState.selectedAddons = [];
+      modalState.note = '';
+      modalImage.src = (DATA.images[product.image]||{}).src || '';
+      modalTitle.innerText = product.title;
+      modalDesc.innerText = product.description || '';
+      modalPrice.innerText = product.price.toFixed(2);
+      modalQty.innerText = modalState.qty;
+      modalNote.value = '';
+      renderAddonList(product);
+      calcModalTotal();
+      productOverlay.classList.add('show');
+    }
+
+    function renderAddonList(product){
+      addonList.innerHTML = '';
+      (product.addons||[]).forEach(aid=>{
+        const addon = DATA.addons.find(x=>x.id===aid);
+        if(!addon) return;
+        const el = document.createElement('div');
+        el.className = 'addon-item';
+        el.innerHTML = `<input type="checkbox" data-id="${addon.id}"> <div style="flex:1"><div style="font-weight:600">${addon.title}</div><div class="small">$${addon.price.toFixed(2)}</div></div>`;
+        const cb = el.querySelector('input');
+        cb.addEventListener('change', ()=>{
+          if(cb.checked) modalState.selectedAddons.push(addon.id);
+          else modalState.selectedAddons = modalState.selectedAddons.filter(x=>x!==addon.id);
+          calcModalTotal();
+        });
+        addonList.appendChild(el);
+      });
+    }
+
+    function calcModalTotal(){
+      const p = modalState.product;
+      if(!p) return;
+      const addonsTotal = (modalState.selectedAddons || []).reduce((s,aid)=>{
+        const a = DATA.addons.find(x=>x.id===aid); return s + (a? a.price:0);
       },0);
-      document.getElementById('itemCount').textContent = `${totalQ} item${totalQ!==1?'s':''}`;
-      document.getElementById('totalPrice').textContent = totalP.toFixed(2);
-      updateBadges();
+      const total = (p.price + addonsTotal) * modalState.qty;
+      modalTotal.innerText = total.toFixed(2);
     }
 
-    // PRODUCT MODAL
-    let currentProduct = null; let currentQty = 1; let currentSelectedAddons = new Set();
-    function openProductModal(p){
-      currentProduct = p; currentQty = 1; currentSelectedAddons = new Set();
-      document.getElementById('pmImg').src = imgById(p.image)||'';
-      document.getElementById('pmTitle').textContent = p.title;
-      document.getElementById('pmDesc').textContent = p.description||'';
-      document.getElementById('pmUnit').textContent = p.price.toFixed(2);
-      document.getElementById('pmQty').textContent = currentQty;
-      document.getElementById('pmNote').value = '';
-      renderPmAddons(p.addons||[]);
-      updatePmTotal();
-      document.getElementById('productModal').classList.add('show');
-    }
-    function closeProductModal(){ document.getElementById('productModal').classList.remove('show'); }
-    function renderPmAddons(list){
-      const el = document.getElementById('pmAddons'); el.innerHTML = '';
-      list.forEach(aid=>{const a = addons.find(x=>x.id===aid); if(!a) return; const d=document.createElement('label'); d.className='addon'; d.innerHTML = `<input type="checkbox" data-id="${a.id}"> <div style="flex:1"><div style="font-weight:700">${a.title}</div><div style="font-size:12px;color:#666">${a.description||''}</div></div><div style="font-weight:700">+${a.price.toFixed(2)}</div>`; d.querySelector('input').addEventListener('change',e=>{ if(e.target.checked) currentSelectedAddons.add(a.id); else currentSelectedAddons.delete(a.id); updatePmTotal(); }); el.appendChild(d);} )
-    }
-    function updatePmTotal(){
-      const unit = currentProduct.price || 0;
-      const addonsTotal = Array.from(currentSelectedAddons).reduce((s,id)=>{const a=addons.find(x=>x.id===id); return s + (a? a.price:0)},0);
-      const total = (unit + addonsTotal) * currentQty;
-      document.getElementById('pmTotal').textContent = total.toFixed(2);
-    }
-
-    document.getElementById('pmPlus').addEventListener('click',()=>{ currentQty++; document.getElementById('pmQty').textContent=currentQty; updatePmTotal(); });
-    document.getElementById('pmMinus').addEventListener('click',()=>{ if(currentQty>1) currentQty--; document.getElementById('pmQty').textContent=currentQty; updatePmTotal(); });
-    document.getElementById('pmCancel').addEventListener('click',()=>{ closeProductModal(); });
-    document.getElementById('pmConfirm').addEventListener('click',()=>{
-      const entry = {id: currentProduct.id, quantity: currentQty, unitPrice: currentProduct.price, addons: Array.from(currentSelectedAddons), note: document.getElementById('pmNote').value||''};
-      addToCart(entry); closeProductModal();
+    document.getElementById('incBtn').addEventListener('click', ()=>{
+      modalState.qty++;
+      modalQty.innerText = modalState.qty;
+      calcModalTotal();
+    });
+    document.getElementById('decBtn').addEventListener('click', ()=>{
+      if(modalState.qty>1) modalState.qty--;
+      modalQty.innerText = modalState.qty;
+      calcModalTotal();
     });
 
-    // CHECKOUT
-    document.getElementById('checkoutBtn').addEventListener('click',()=>{
+    document.getElementById('cancelModal').addEventListener('click', ()=>{
+      productOverlay.classList.remove('show');
+    });
+
+    document.getElementById('confirmModal').addEventListener('click', ()=>{
+      modalState.note = modalNote.value.trim();
+      addToCart(modalState.product, modalState.qty, modalState.selectedAddons.slice(), modalState.note);
+      productOverlay.classList.remove('show');
+    });
+
+    function addToCart(product, qty, addons, note){
+      // unify key by id + sorted addons + note
+      const key = makeKey(product.id, addons, note);
+      const existing = cart.find(it=> it.key===key);
+      const baseItem = {id:product.id, price: product.price, title:product.title, image:product.image};
+      if(existing){
+        existing.quantity += qty;
+        existing.totalprice = +(existing.quantity * (existing.price + addonsTotalPrice(addons))).toFixed(2);
+      } else {
+        const item = Object.assign({}, baseItem, {quantity:qty, addons:addons.slice(), note:note, key});
+        item.totalprice = +(item.quantity * (item.price + addonsTotalPrice(addons))).toFixed(2);
+        cart.push(item);
+      }
+      updateCategoryCounts();
+      renderProducts();
+      refreshBottom();
+    }
+
+    function addonsTotalPrice(addons){
+      return (addons||[]).reduce((s,aid)=>{ const a = DATA.addons.find(x=>x.id===aid); return s + (a? a.price:0); },0);
+    }
+
+    function makeKey(id, addons, note){
+      const as = (addons||[]).slice().sort((a,b)=>a-b).join('-');
+      return `${id}|${as}|${note||''}`;
+    }
+
+    function updateCategoryCounts(){
+      // compute counts per category by summing quantities of items that belong to that category
+      const counts = {};
+      cart.forEach(it=>{
+        const menuItem = DATA.menu.find(m=>m.id===it.id);
+        const catId = menuItem ? menuItem.category : DATA.cats[0].id;
+        counts[catId] = (counts[catId]||0) + it.quantity;
+      });
+      // update UI
+      Array.from(catsEl.children).forEach(ch=>{
+        const idx = +ch.dataset.idx;
+        const cat = DATA.cats[idx];
+        const cnt = counts[cat.id]||0;
+        const countEl = ch.querySelector('[data-count]');
+        if(countEl) countEl.innerText = cnt;
+      });
+      refreshBottom();
+    }
+
+    function refreshBottom(){
+      const totalQty = cart.reduce((s,it)=>s+it.quantity,0);
+      const totalPrice = cart.reduce((s,it)=>s + it.totalprice,0);
+      totalCountEl.innerText = totalQty;
+      totalPriceEl.innerText = totalPrice.toFixed(2);
+    }
+
+    // checkout flow
+    document.getElementById('checkoutBtn').addEventListener('click', ()=>{
       openCheckout();
     });
+
     function openCheckout(){
-      const el = document.getElementById('checkoutList'); el.innerHTML = '';
-      let subtotal = 0;
+      const listEl = document.getElementById('checkoutList');
+      listEl.innerHTML = '';
       cart.forEach(it=>{
-        const m = menu.find(x=>x.id===it.id) || {title:'Item',image:null};
-        const div = document.createElement('div'); div.className='checkout-item';
-        const thumb = imgById(m.image)||'';
-        const addonsText = (it.addons||[]).map(aid=>{const a=addons.find(x=>x.id===aid);return a? a.title+'(+'+a.price.toFixed(2)+')':''}).join(', ');
-        const addonsPrice = (it.addons||[]).reduce((s,id)=>{const a=addons.find(x=>x.id===id);return s+(a? a.price:0)},0);
-        const total = (it.unitPrice + addonsPrice) * it.quantity;
-        subtotal += total;
-        div.innerHTML = `<img src="${thumb}"><div style="flex:1"><div style="font-weight:700">${m.title}</div><div style="font-size:13px;color:#666">Qty: ${it.quantity} ${addonsText?('<br>'+addonsText):''} ${it.note?('<br>Note: '+escapeHtml(it.note)):''}</div></div><div style="font-weight:800">${total.toFixed(2)}</div>`;
-        el.appendChild(div);
+        const img = (DATA.images[it.image]||{}).src || '';
+        const el = document.createElement('div');
+        el.className = 'checkout-item';
+        const addonTitles = (it.addons||[]).map(aid=>(DATA.addons.find(a=>a.id===aid)||{}).title).join(', ');
+        el.innerHTML = `<img src="${img}"><div style="flex:1"><div style="font-weight:700">${it.title} <span class="small">x${it.quantity}</span></div><div class="small">${addonTitles||''}</div><div class="small">${it.note||''}</div></div><div style="min-width:80px;text-align:right">$${it.totalprice.toFixed(2)}</div>`;
+        listEl.appendChild(el);
       });
-      const tax = subtotal * taxRate; const total = subtotal + tax;
-      document.getElementById('coSubtotal').textContent = subtotal.toFixed(2);
-      document.getElementById('coTax').textContent = tax.toFixed(2);
-      document.getElementById('coTotal').textContent = total.toFixed(2);
-      document.getElementById('checkoutModal').classList.add('show');
+      const sub = cart.reduce((s,it)=>s + it.totalprice,0);
+      const tax = +(sub * config.taxRate);
+      const tot = +(sub + tax).toFixed(2);
+      document.getElementById('subTotal').innerText = sub.toFixed(2);
+      document.getElementById('taxAmount').innerText = tax.toFixed(2);
+      document.getElementById('checkoutTotal').innerText = tot.toFixed(2);
+      checkoutOverlay.classList.add('show');
     }
-    document.getElementById('coClose').addEventListener('click',()=>document.getElementById('checkoutModal').classList.remove('show'));
-    document.getElementById('coCheckout').addEventListener('click',()=>{
-      // prepare checkout payload and show QR
-      const payload = collect();
-      const q = JSON.stringify(payload);
-      const qrUrl = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=' + encodeURIComponent(q);
-      document.getElementById('qrImg').src = qrUrl;
-      document.getElementById('checkoutModal').classList.remove('show');
-      document.getElementById('qrModal').classList.add('show');
+
+    document.getElementById('closeCheckout').addEventListener('click', ()=> checkoutOverlay.classList.remove('show'));
+    document.getElementById('goToPay').addEventListener('click', ()=>{
+      // generate a simple QR that encodes order summary JSON. Use free QR server
+      const payload = JSON.stringify(collect());
+      const url = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(payload);
+      document.getElementById('qrImage').src = url;
+      checkoutOverlay.classList.remove('show');
+      payOverlay.classList.add('show');
     });
 
-    // util
-    function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+    document.getElementById('closePay').addEventListener('click', ()=> payOverlay.classList.remove('show'));
+    document.getElementById('clearCart').addEventListener('click', ()=>{ cart=[]; refreshBottom(); updateCategoryCounts(); payOverlay.classList.remove('show'); renderProducts(); });
 
-    // COLLECT function as requested
+    // collect() function as requested
     function collect(){
-      const items = cart.map(it=>({id: it.id, quantity: it.quantity, totalprice: (()=>{const addonsPrice = (it.addons||[]).reduce((s,id)=>{const a=addons.find(x=>x.id===id);return s + (a? a.price:0)},0); return ((it.unitPrice || 0) + addonsPrice) * it.quantity;})(), note: it.note||'', addons: (it.addons||[]).slice() }));
-      const totalprice = items.reduce((s,i)=>s + (i.totalprice||0),0);
-      const totalquantity = items.reduce((s,i)=>s + (i.quantity||0),0);
-      return {totalprice, totalquantity, items};
+      const items = cart.map(it => ({id:it.id, quantity:it.quantity, totalprice:+it.totalprice.toFixed(2), note:it.note, addons: it.addons.slice()}));
+      const totalprice = +items.reduce((s,i)=>s + i.totalprice,0).toFixed(2);
+      const totalquantity = items.reduce((s,i)=>s + i.quantity,0);
+      return { totalprice, totalquantity, items };
     }
-    // expose collect globally for caller usage
+
+    // expose collect to window so user can call it
     window.collect = collect;
+    window.kioskConfig = config;
 
-    // init
+    // load
     loadData();
-
-    // make sure modals close on outside click
-    document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); }));
 
   </script>
 </body>
