@@ -3,429 +3,372 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wok & Bara</title>
+  <title>Self-Service Order Kiosk</title>
   <style>
-    :root{
-      --left-width:260px;
-      --gap:16px;
-      --accent:#0b76ef;
-      --bg:#f6f7fb;
-      --card:#ffffff;
-      --muted:#666;
-      --tax-rate:0.06; /* used in script */
-    }
+    :root{--sidebar-width:260px;--gap:12px;--accent:#0b79f7;--bg:#f6f7fb}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
+    html,body,#app{height:100%;margin:0;background:var(--bg)}
+    #app{display:flex;flex-direction:column}
+    .main{flex:1;display:flex;gap:var(--gap);padding:12px}
 
-    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;color:#222;background:var(--bg)}
+    /* LEFT: Categories (fixed width, vertical unscrollable list) */
+    .sidebar{width:var(--sidebar-width);background:#fff;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+    .cats{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .cat{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+    .cat.active{background:linear-gradient(90deg, rgba(11,121,247,0.06), rgba(11,121,247,0.02));border-color:rgba(11,121,247,0.12)}
+    .cat img{width:44px;height:44px;object-fit:cover;border-radius:6px}
+    .cat .meta{display:flex;flex-direction:column}
+    .cat .meta .title{font-weight:600}
+    .cat .meta .sub{font-size:12px;color:#666}
+    .cat .badge{margin-left:auto;background:#eee;padding:4px 8px;border-radius:999px;font-size:12px}
 
-    /* main 2-column layout */
-    .app{
-      display:flex;
-      height:100vh;
-      gap:var(--gap);
-      padding:var(--gap);
-      box-sizing:border-box;
-    }
-
-    /* left fixed column for categories */
-    .sidebar{
-      width:var(--left-width);
-      min-width:var(--left-width);
-      max-width:var(--left-width);
-      background:var(--card);
-      border-radius:12px;
-      padding:12px;
-      box-shadow:0 6px 20px rgba(12,20,40,0.06);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      box-sizing:border-box;
-      overflow:hidden; /* vertical unscrollable list requirement */
-    }
-
-    .categories{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-
-    .category{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      padding:8px;
-      border-radius:8px;
-      cursor:pointer;
-      user-select:none;
-    }
-    .category.active{background:linear-gradient(90deg, rgba(11,118,239,0.12), rgba(11,118,239,0.06));}
-
-    .cat-thumb{width:44px;height:44px;border-radius:8px;flex-shrink:0;object-fit:cover;background:#eee}
-    .cat-meta{display:flex;flex-direction:column}
-    .cat-label{font-weight:600}
-    .cat-count{font-size:12px;color:var(--muted)}
-
-    /* main content (right) is flexible */
-    .main{
-      flex:1 1 auto;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      min-width:0;
-    }
-
-    /* header area (optional) */
-    .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px}
-
-    /* products grid */
-    .products-area{
-      background:var(--card);
-      border-radius:12px;
-      padding:12px;
-      box-shadow:0 6px 20px rgba(12,20,40,0.04);
-      flex:1 1 auto;
-      display:flex;
-      flex-direction:column;
-      min-height:0; /* allow inner scroll */
-    }
-
-    .products-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); /* flexible number of columns */
-      gap:12px;
-      align-items:start;
-      overflow:auto;
-      padding:4px;
-      min-height:0;
-    }
-
-    .product-card{
-      background:#fff;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 12px rgba(12,20,40,0.04);
-    }
-    .product-thumb{width:100%;height:120px;border-radius:8px;object-fit:cover;cursor:pointer}
-    .product-meta{display:flex;flex-direction:column;gap:6px}
-    .product-title{font-weight:600}
-    .product-price{font-size:14px;color:var(--muted)}
-    .product-selected{margin-top:auto;display:flex;justify-content:space-between;align-items:center}
-
-    .qty-badge{background:#eee;padding:6px 8px;border-radius:999px;font-weight:600}
+    /* RIGHT: Products grid */
+    .content{flex:1;display:flex;flex-direction:column;gap:12px}
+    .grid-wrap{flex:1;overflow:auto}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .card{background:#fff;padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+    .thumb{width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer}
+    .card .row{display:flex;align-items:center;gap:8px}
+    .card .title{font-weight:600}
+    .card .price{margin-left:auto;font-weight:700}
+    .small-badge{font-size:12px;color:#333;background:#f3f4f6;padding:4px 6px;border-radius:6px}
 
     /* bottom bar */
-    .bottombar{
-      height:66px;
-      display:flex;align-items:center;justify-content:space-between;padding:12px;background:linear-gradient(90deg,#ffffff, #fbfdff);border-radius:12px;box-shadow:0 -2px 12px rgba(12,20,40,0.03);
-    }
-    .bottombar .summary{display:flex;gap:18px;align-items:center}
-    .checkout-btn{background:var(--accent);color:#fff;padding:12px 20px;border-radius:10px;border:none;font-weight:700;cursor:pointer}
+    .bottombar{height:64px;background:#fff;border-radius:8px;padding:10px;display:flex;align-items:center;gap:12px}
+    .summary{display:flex;flex-direction:column}
+    .summary .big{font-weight:700;font-size:18px}
+    .checkout-btn{margin-left:auto;background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer}
 
-    /* modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:90}
-    .modal{background:#fff;border-radius:12px;max-width:920px;width:95%;max-height:92vh;overflow:auto;padding:18px;box-shadow:0 18px 60px rgba(2,18,50,0.2)}
-    .modal-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
-    .modal-thumb{width:100%;height:300px;object-fit:cover;border-radius:8px}
-    .modal-actions{display:flex;gap:8px;align-items:center;margin-top:12px}
-    .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
-    .btn-ghost{background:#f2f4f8}
-    .btn-primary{background:var(--accent);color:#fff}
+    /* modals */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;padding:20px}
+    .overlay.show{display:flex}
+    .modal{background:#fff;border-radius:10px;max-width:840px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+    .modal .top{display:flex;gap:16px}
+    .modal .bigimg{width:320px;height:320px;object-fit:cover;border-radius:8px}
+    .modal .right{flex:1;display:flex;flex-direction:column;gap:8px}
+    .addons-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+    .addon{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
+    .qty-controls{display:flex;align-items:center;gap:8px}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff;border:none}
 
-    .addons-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-    .addon{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
-
-    /* checkout modal list */
+    /* checkout list */
     .checkout-list{display:flex;flex-direction:column;gap:8px}
-    .checkout-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px}
-    .checkout-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover}
+    .checkout-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px;background:#fff}
+    .checkout-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
+    .tax-row{display:flex;justify-content:space-between;font-weight:700}
 
-    /* responsiveness tweak */
-    @media (max-width:800px){
-      :root{--left-width:200px}
-      .modal-grid{grid-template-columns:1fr}
-      .modal-thumb{height:220px}
-    }
+    /* responsive tweaks */
+    @media (max-width:880px){:root{--sidebar-width:160px}}
+    @media (max-width:640px){.main{flex-direction:column}.sidebar{width:100%;order:2}.content{order:1}}
   </style>
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div style="font-weight:700;">Categories</div>
-      <div class="categories" id="categories"></div>
-      <div style="flex:1"></div>
-      <div style="font-size:12px;color:var(--muted);text-align:center">Touch a product to open options</div>
-    </aside>
+  <div id="app">
+    <div class="main">
+      <aside class="sidebar">
+        <div style="font-weight:800">Categories</div>
+        <div class="cats" id="cats"></div>
+      </aside>
 
-    <main class="main">
-      <div class="topbar">
-        <div style="font-weight:700">Products</div>
-        <div style="font-size:13px;color:var(--muted)">Kiosk: Self-service</div>
-      </div>
+      <section class="content">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-weight:800;font-size:18px">Menu</div>
+          <div id="selectedCategoryTitle" style="color:#666">All</div>
+        </div>
 
-      <section class="products-area">
-        <div class="products-grid" id="productsGrid"></div>
+        <div class="grid-wrap"><div class="grid" id="products"></div></div>
+
       </section>
+    </div>
 
+    <div style="padding:12px">
       <div class="bottombar">
         <div class="summary">
           <div id="itemCount">0 items</div>
-          <div id="totalPrice">RM 0.00</div>
+          <div class="big" id="totalPrice">0.00</div>
         </div>
-        <div>
-          <button class="checkout-btn" id="checkoutBtn">Checkout</button>
-        </div>
+        <button class="checkout-btn" id="checkoutBtn">Checkout</button>
       </div>
-    </main>
+    </div>
   </div>
 
   <!-- product modal -->
-  <div class="modal-backdrop" id="productModal">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700" id="modalTitle">Product</div>
-        <button class="btn btn-ghost" onclick="closeProductModal()">CLOSE</button>
-      </div>
-      <div class="modal-grid">
-        <div>
-          <img id="modalImage" class="modal-thumb" src="" alt="">
-        </div>
-        <div>
-          <div id="modalDesc" style="color:var(--muted)"></div>
-          <div style="margin-top:10px;font-weight:700;font-size:18px" id="modalUnitPrice">RM 0.00</div>
+  <div class="overlay" id="productModal">
+    <div class="modal" role="dialog">
+      <div class="top">
+        <img id="pmImg" class="bigimg" src="" alt="product">
+        <div class="right">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div id="pmTitle" style="font-weight:800;font-size:20px"></div>
+              <div id="pmDesc" style="color:#666;font-size:13px;margin-top:6px"></div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:18px;font-weight:800" id="pmUnit">0.00</div>
+              <div style="font-size:12px;color:#666">unit price</div>
+            </div>
+          </div>
 
-          <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
-            <button class="btn" id="decBtn">-</button>
-            <div id="modalQty" style="min-width:36px;text-align:center;font-weight:700">1</div>
-            <button class="btn" id="incBtn">+</button>
-            <div style="margin-left:12px;color:var(--muted)">Total: <span id="modalTotalPrice">RM 0.00</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+            <div class="qty-controls">
+              <button class="btn" id="pmMinus">-</button>
+              <div id="pmQty">1</div>
+              <button class="btn" id="pmPlus">+</button>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:700">Total</div>
+              <div id="pmTotal">0.00</div>
+            </div>
           </div>
 
           <div style="margin-top:12px">
-            <label style="font-weight:700">Note</label>
-            <textarea id="modalNote" placeholder="Add note (e.g. no onion)" style="width:100%;min-height:64px;margin-top:6px;padding:8px;border-radius:8px;border:1px solid #eee"></textarea>
+            <label>Note</label>
+            <input id="pmNote" placeholder="Add note" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ddd;margin-top:6px" />
           </div>
 
           <div style="margin-top:12px">
             <div style="font-weight:700">Add-ons</div>
-            <div class="addons-list" id="modalAddons"></div>
+            <div class="addons-list" id="pmAddons"></div>
           </div>
 
-          <div class="modal-actions">
-            <button class="btn btn-ghost" onclick="closeProductModal()">CANCEL</button>
-            <button class="btn btn-primary" id="confirmProductBtn">CONFIRM</button>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="pmCancel">CANCEL</button>
+            <button class="btn primary" id="pmConfirm">CONFIRM</button>
           </div>
+
         </div>
       </div>
     </div>
   </div>
 
   <!-- checkout modal -->
-  <div class="modal-backdrop" id="checkoutModal">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">Checkout</div>
-        <button class="btn btn-ghost" onclick="closeCheckoutModal()">CLOSE</button>
-      </div>
-
+  <div class="overlay" id="checkoutModal">
+    <div class="modal" style="max-width:760px">
+      <h3>Checkout</h3>
       <div class="checkout-list" id="checkoutList"></div>
-
-      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:700">Total (incl. tax)</div>
-        <div style="font-weight:800" id="checkoutTotal">RM 0.00</div>
+      <div style="margin-top:12px">
+        <div class="tax-row"><div>Subtotal</div><div id="coSubtotal">0.00</div></div>
+        <div class="tax-row"><div>Tax (<span id="taxRateLabel"></span>)</div><div id="coTax">0.00</div></div>
+        <div class="tax-row" style="font-size:20px;margin-top:8px"><div>Total</div><div id="coTotal">0.00</div></div>
       </div>
-
-      <div style="display:flex;justify-content:flex-end;margin-top:12px">
-        <button class="btn btn-primary" onclick="finalizeCheckout()">CHECKOUT</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div></div>
+        <div>
+          <button class="btn" id="coClose">CLOSE</button>
+          <button class="btn primary" id="coCheckout">CHECKOUT</button>
+        </div>
       </div>
+    </div>
+  </div>
 
+  <!-- final qr page modal -->
+  <div class="overlay" id="qrModal">
+    <div class="modal" style="max-width:420px;text-align:center">
+      <h3>Pay with QR</h3>
+      <img id="qrImg" src="" alt="qr" style="width:260px;height:260px;object-fit:contain" />
+      <div style="margin-top:12px;font-size:14px;color:#666">Scan to pay</div>
     </div>
   </div>
 
   <script>
-    /* Sample data */
-    const TAX_RATE = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tax-rate')) || 0.06;
+    // Data placeholders
+    let images = [];
+    let cats = [];
+    let addons = [];
+    let menu = [];
+    const taxRate = 0.06; // changeable if needed
 
-    const categories = [
-      {id:'c1',label:'Burgers',img:'https://picsum.photos/seed/b1/120/120'},
-      {id:'c2',label:'Pizza',img:'https://picsum.photos/seed/p1/120/120'},
-      {id:'c3',label:'Drinks',img:'https://picsum.photos/seed/d1/120/120'},
-      {id:'c4',label:'Desserts',img:'https://picsum.photos/seed/s1/120/120'}
-    ];
+    // Cart structure: array of entries {id, addons:[id], note, quantity, unitPrice}
+    let cart = [];
 
-    const products = [
-      {id:'p1',cat:'c1',label:'Cheeseburger',price:9.50,img:'https://picsum.photos/seed/cheese/400/300',desc:'Juicy beef patty with cheese.',addons:[{id:'a1',label:'Extra Cheese',price:1.2},{id:'a2',label:'Bacon',price:2.5}]},
-      {id:'p2',cat:'c1',label:'Veggie Burger',price:8.00,img:'https://picsum.photos/seed/veggie/400/300',desc:'Grilled veg patty, fresh salad.',addons:[]},
-      {id:'p3',cat:'c2',label:'Margherita',price:18.00,img:'https://picsum.photos/seed/mar/400/300',desc:'Classic margherita with basil.',addons:[{id:'a3',label:'Extra Cheese',price:2},{id:'a4',label:'Olives',price:1}]},
-      {id:'p4',cat:'c3',label:'Iced Tea',price:3.50,img:'https://picsum.photos/seed/tea/400/300',desc:'Refreshing cold tea.',addons:[]},
-      {id:'p5',cat:'c4',label:'Chocolate Cake',price:6.50,img:'https://picsum.photos/seed/cake/400/300',desc:'Rich chocolate slice.',addons:[{id:'a5',label:'Vanilla Icecream',price:1.5}]}
-    ];
-
-    /* cart: map productId -> {product, qty, addons: [ids], note} */
-    const cart = new Map();
-    let activeCategory = categories[0].id;
-
-    function $(id){return document.getElementById(id)}
-
-    function currency(v){return 'RM '+(v).toFixed(2)}
-
-    function renderCategories(){
-      const wrap = $('categories');
-      wrap.innerHTML='';
-      categories.forEach(cat=>{
-        const el = document.createElement('div');
-        el.className = 'category' + (cat.id===activeCategory ? ' active' : '');
-        el.onclick = ()=>{activeCategory=cat.id; renderCategories(); renderProducts();};
-        el.innerHTML = `
-          <img class="cat-thumb" src="${cat.img}" alt="">
-          <div class="cat-meta">
-            <div class="cat-label">${cat.label}</div>
-            <div class="cat-count">${countSelectedForCategory(cat.id)} selected</div>
-          </div>
-        `;
-        wrap.appendChild(el);
-      })
+    // Load menu data on start
+    async function loadData(){
+      try{
+        // attempt to fetch /menu.json
+        const res = await fetch('/menu.json');
+        if(!res.ok) throw new Error('no menu.json');
+        const d = await res.json();
+        images = d.images||[]; cats = d.cats||[]; addons = d.addons||[]; menu = d.menu||[];
+      }catch(e){
+        // fallback sample data
+        images = [{id:1,src:'https://picsum.photos/seed/1/600/400'},{id:2,src:'https://picsum.photos/seed/2/600/400'},{id:3,src:'https://picsum.photos/seed/3/600/400'}];
+        cats = [{id:1,title:'Hot Drinks',description:'Warm beverages',image:1},{id:2,title:'Cold Drinks',description:'Icy & refreshing',image:2},{id:3,title:'Snacks',description:'Light bites',image:3}];
+        addons = [{id:11,title:'Extra Shot',description:'Add espresso shot',price:0.8,image:1},{id:12,title:'Syrup',description:'Vanilla',price:0.5,image:2}];
+        menu = [{id:101,title:'Americano',description:'Classic',price:3.5,image:1,category:0,addons:[11]},{id:102,title:'Iced Tea',description:'Lemon',price:2.8,image:2,category:1,addons:[12]},{id:103,title:'Cookie',description:'Chocolate chip',price:1.6,image:3,category:2,addons:[]}];
+      }
+      renderCats();
+      renderProducts();
+      document.getElementById('taxRateLabel').textContent = (taxRate*100).toFixed(0)+"%";
     }
 
-    function countSelectedForCategory(catId){
-      let sum=0;
-      cart.forEach(item=>{ if(item.product.cat===catId) sum+=item.qty })
-      return sum;
+    function imgById(id){const f=images.find(x=>x.id===id);return f?f.src:''}
+
+    // RENDERING
+    let selectedCategory = null; // index in cats array
+    function renderCats(){
+      const el = document.getElementById('cats'); el.innerHTML = '';
+      cats.forEach((c,idx)=>{
+        const div = document.createElement('div'); div.className='cat'+(selectedCategory===idx?' active':''); div.dataset.idx=idx;
+        div.innerHTML = `<img src="${imgById(c.image)||''}" alt=""><div class="meta"><div class="title">${c.title}</div><div class="sub">${c.description||''}</div></div><div class="badge" id="cat-badge-${idx}">0</div>`;
+        div.addEventListener('click',()=>{selectedCategory = idx; document.getElementById('selectedCategoryTitle').textContent = c.title; renderCats(); renderProducts();});
+        el.appendChild(div);
+      });
+      // All categories selector
+      const all = document.createElement('div'); all.className='cat'+(selectedCategory===null?' active':''); all.style.marginTop='6px'; all.innerHTML = `<img src="https://picsum.photos/seed/all/80/80" style="width:44px;height:44px;border-radius:6px"><div class="meta"><div class="title">All</div><div class="sub">Show all</div></div><div class="badge">&nbsp;</div>`;
+      all.addEventListener('click',()=>{selectedCategory=null; document.getElementById('selectedCategoryTitle').textContent='All'; renderCats(); renderProducts();});
+      el.insertBefore(all, el.firstChild);
     }
 
     function renderProducts(){
-      const grid = $('productsGrid');
-      grid.innerHTML='';
-      const list = products.filter(p=>p.cat===activeCategory);
-      list.forEach(p=>{
-        const card = document.createElement('div');
-        card.className='product-card';
-        const inCart = cart.get(p.id);
-        const selectedCount = inCart ? inCart.qty : 0;
-        card.innerHTML = `
-          <img class="product-thumb" src="${p.img}" alt="" onclick="openProductModal('${p.id}')">
-          <div class="product-meta">
-            <div class="product-title">${p.label}</div>
-            <div class="product-price">${currency(p.price)}</div>
-            <div class="product-selected">
-              <div style="font-size:13px;color:var(--muted)">Total: <strong>${selectedCount}</strong></div>
-              <div></div>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-      })
+      const el = document.getElementById('products'); el.innerHTML = '';
+      const list = menu.map((m,idx)=>({m,idx})).filter(x=> selectedCategory===null ? true : x.m.category===selectedCategory);
+      list.forEach(({m,idx})=>{
+        const div = document.createElement('div'); div.className='card';
+        const thumb = imgById(m.image)||'';
+        div.innerHTML = `<img class="thumb" src="${thumb}" data-id="${m.id}"><div style="display:flex;align-items:center"><div class="title">${m.title}</div><div class="price">${m.price.toFixed(2)}</div></div><div style="display:flex;gap:8px;align-items:center"><div class="small-badge">${m.description||''}</div><div style="margin-left:auto" id="prod-count-${m.id}"></div></div>`;
+        // image click opens modal
+        div.querySelector('.thumb').addEventListener('click',()=>openProductModal(m));
+        el.appendChild(div);
+      });
+      updateBadges();
     }
 
-    function updateBottomBar(){
-      let items=0; let total=0;
-      cart.forEach(it=>{ items+=it.qty; total += itemTotal(it) });
-      $('itemCount').textContent = items + (items===1 ? ' item' : ' items');
-      $('totalPrice').textContent = currency(total);
-      $('checkoutBtn').disabled = items===0;
+    // CART HELPERS
+    function makeKey(entry){ // unique by id x addons x note
+      const a = (entry.addons||[]).slice().sort((a,b)=>a-b).join(',');
+      const n = (entry.note||'').trim();
+      return `${entry.id}::${a}::${n}`;
     }
 
-    function itemTotal(cartItem){
-      const base = cartItem.product.price * cartItem.qty;
-      const addonsSum = (cartItem.addons||[]).reduce((s,aid)=>{
-        const ad = cartItem.product.addons.find(a=>a.id===aid);
-        return s + (ad?ad.price:0);
-      },0);
-      return base + addonsSum * cartItem.qty;
+    function findCartEntryIndex(entry){
+      const key = makeKey(entry);
+      return cart.findIndex(c=>makeKey(c)===key);
     }
 
-    /* product modal logic */
-    let modalState = null; // {product, qty, selectedAddons:[],note}
-    function openProductModal(productId){
-      const p = products.find(x=>x.id===productId);
-      const inCart = cart.get(productId);
-      modalState = {product:p, qty: inCart ? inCart.qty : 1, selectedAddons: inCart ? [...inCart.addons] : [], note: inCart ? inCart.note : ''};
-      $('modalTitle').textContent = p.label;
-      $('modalImage').src = p.img;
-      $('modalDesc').textContent = p.desc;
-      $('modalUnitPrice').textContent = currency(p.price);
-      $('modalQty').textContent = modalState.qty;
-      $('modalNote').value = modalState.note || '';
-      renderModalAddons();
-      updateModalTotal();
-      $('productModal').style.display='flex';
-      $('incBtn').onclick = ()=>{ modalState.qty++; $('modalQty').textContent=modalState.qty; updateModalTotal(); }
-      $('decBtn').onclick = ()=>{ if(modalState.qty>1) modalState.qty--; $('modalQty').textContent=modalState.qty; updateModalTotal(); }
-      $('confirmProductBtn').onclick = confirmProductFromModal;
+    function addToCart(entry){
+      const idx = findCartEntryIndex(entry);
+      if(idx>-1){ cart[idx].quantity += entry.quantity; }
+      else cart.push(Object.assign({},entry));
+      refreshUI();
     }
 
-    function renderModalAddons(){
-      const wrap = $('modalAddons'); wrap.innerHTML='';
-      const list = modalState.product.addons || [];
-      if(list.length===0){ wrap.innerHTML = '<div style="color:var(--muted);font-size:13px">No addons</div>'; return }
-      list.forEach(a=>{
-        const row = document.createElement('label'); row.className='addon';
-        const checked = modalState.selectedAddons.includes(a.id) ? 'checked' : '';
-        row.innerHTML = `<div><input type=checkbox ${checked} onchange="toggleAddon('${a.id}')"> ${a.label}</div><div>${currency(a.price)}</div>`;
-        wrap.appendChild(row);
-      })
-    }
-
-    function toggleAddon(addonId){
-      const idx = modalState.selectedAddons.indexOf(addonId);
-      if(idx===-1) modalState.selectedAddons.push(addonId); else modalState.selectedAddons.splice(idx,1);
-      updateModalTotal();
-    }
-
-    function updateModalTotal(){
-      const unit = modalState.product.price;
-      const addonsSum = (modalState.product.addons||[]).filter(a=>modalState.selectedAddons.includes(a.id)).reduce((s,a)=>s+a.price,0);
-      const total = (unit + addonsSum) * modalState.qty;
-      $('modalTotalPrice').textContent = currency(total);
-    }
-
-    function closeProductModal(){ $('productModal').style.display='none'; modalState=null }
-
-    function confirmProductFromModal(){
-      const p = modalState.product;
-      const entry = {product:p, qty:modalState.qty, addons:[...modalState.selectedAddons], note: $('modalNote').value || ''};
-      cart.set(p.id, entry);
-      closeProductModal();
-      renderCategories(); renderProducts(); updateBottomBar();
-    }
-
-    /* Checkout modal */
-    function openCheckoutModal(){
-      const wrap = $('checkoutList'); wrap.innerHTML='';
-      let subtotal=0;
+    function updateBadges(){
+      // per category totals
+      const perCat = cats.map(()=>0);
       cart.forEach(it=>{
-        const el = document.createElement('div'); el.className='checkout-item';
-        const addonsText = (it.addons||[]).map(aid=>{ const a = it.product.addons.find(x=>x.id===aid); return a? a.label+" ("+currency(a.price)+")":"" }).join(', ');
-        el.innerHTML = `
-          <img class="checkout-thumb" src="${it.product.img}">
-          <div style="flex:1">
-            <div style="font-weight:700">${it.product.label} <span style="font-weight:600;color:var(--muted)">x ${it.qty}</span></div>
-            <div style="font-size:13px;color:var(--muted)">${addonsText || ''}</div>
-            <div style="font-size:13px;color:var(--muted)">Note: ${it.note || '-'}</div>
-          </div>
-          <div style="font-weight:800">${currency(itemTotal(it))}</div>
-        `;
-        wrap.appendChild(el);
-        subtotal += itemTotal(it);
-      })
-      const tax = subtotal * TAX_RATE;
-      const total = subtotal + tax;
-      $('checkoutTotal').textContent = currency(total);
-      $('checkoutModal').style.display='flex';
+        const m = menu.find(x=>x.id===it.id);
+        if(m && typeof m.category!=='undefined' && m.category!==null) perCat[m.category] += it.quantity;
+      });
+      perCat.forEach((v,i)=>{ const el = document.getElementById('cat-badge-'+i); if(el) el.textContent = v>0?v:''});
+      // product counts
+      menu.forEach(m=>{
+        const total = cart.filter(c=>c.id===m.id).reduce((s,x)=>s+x.quantity,0);
+        const el = document.getElementById('prod-count-'+m.id);
+        if(el) el.textContent = total?`${total} selected`:'';
+      });
     }
 
-    function closeCheckoutModal(){ $('checkoutModal').style.display='none' }
-
-    function finalizeCheckout(){
-      // placeholder behavior - Checkout page KIV
-      alert('Checkout flow is KIV (keep in view).\nOrder summary shown here.');
+    function refreshUI(){
+      // update bottom bar
+      const totalQ = cart.reduce((s,x)=>s+x.quantity,0);
+      const totalP = cart.reduce((s,x)=>{
+        const unit = x.unitPrice||0; const addonsTotal = (x.addons||[]).reduce((aa,id)=>{const ad = addons.find(a=>a.id===id); return aa + (ad?ad.price:0)},0);
+        return s + (unit + addonsTotal) * x.quantity;
+      },0);
+      document.getElementById('itemCount').textContent = `${totalQ} item${totalQ!==1?'s':''}`;
+      document.getElementById('totalPrice').textContent = totalP.toFixed(2);
+      updateBadges();
     }
 
-    /* wire checkout button */
-    $('checkoutBtn').addEventListener('click', openCheckoutModal);
+    // PRODUCT MODAL
+    let currentProduct = null; let currentQty = 1; let currentSelectedAddons = new Set();
+    function openProductModal(p){
+      currentProduct = p; currentQty = 1; currentSelectedAddons = new Set();
+      document.getElementById('pmImg').src = imgById(p.image)||'';
+      document.getElementById('pmTitle').textContent = p.title;
+      document.getElementById('pmDesc').textContent = p.description||'';
+      document.getElementById('pmUnit').textContent = p.price.toFixed(2);
+      document.getElementById('pmQty').textContent = currentQty;
+      document.getElementById('pmNote').value = '';
+      renderPmAddons(p.addons||[]);
+      updatePmTotal();
+      document.getElementById('productModal').classList.add('show');
+    }
+    function closeProductModal(){ document.getElementById('productModal').classList.remove('show'); }
+    function renderPmAddons(list){
+      const el = document.getElementById('pmAddons'); el.innerHTML = '';
+      list.forEach(aid=>{const a = addons.find(x=>x.id===aid); if(!a) return; const d=document.createElement('label'); d.className='addon'; d.innerHTML = `<input type="checkbox" data-id="${a.id}"> <div style="flex:1"><div style="font-weight:700">${a.title}</div><div style="font-size:12px;color:#666">${a.description||''}</div></div><div style="font-weight:700">+${a.price.toFixed(2)}</div>`; d.querySelector('input').addEventListener('change',e=>{ if(e.target.checked) currentSelectedAddons.add(a.id); else currentSelectedAddons.delete(a.id); updatePmTotal(); }); el.appendChild(d);} )
+    }
+    function updatePmTotal(){
+      const unit = currentProduct.price || 0;
+      const addonsTotal = Array.from(currentSelectedAddons).reduce((s,id)=>{const a=addons.find(x=>x.id===id); return s + (a? a.price:0)},0);
+      const total = (unit + addonsTotal) * currentQty;
+      document.getElementById('pmTotal').textContent = total.toFixed(2);
+    }
 
-    /* initialize */
-    renderCategories(); renderProducts(); updateBottomBar();
+    document.getElementById('pmPlus').addEventListener('click',()=>{ currentQty++; document.getElementById('pmQty').textContent=currentQty; updatePmTotal(); });
+    document.getElementById('pmMinus').addEventListener('click',()=>{ if(currentQty>1) currentQty--; document.getElementById('pmQty').textContent=currentQty; updatePmTotal(); });
+    document.getElementById('pmCancel').addEventListener('click',()=>{ closeProductModal(); });
+    document.getElementById('pmConfirm').addEventListener('click',()=>{
+      const entry = {id: currentProduct.id, quantity: currentQty, unitPrice: currentProduct.price, addons: Array.from(currentSelectedAddons), note: document.getElementById('pmNote').value||''};
+      addToCart(entry); closeProductModal();
+    });
 
-    // allow clicking backdrop to close modals
-    document.querySelectorAll('.modal-backdrop').forEach(b=>{
-      b.addEventListener('click', (e)=>{ if(e.target===b) b.style.display='none' })
-    })
+    // CHECKOUT
+    document.getElementById('checkoutBtn').addEventListener('click',()=>{
+      openCheckout();
+    });
+    function openCheckout(){
+      const el = document.getElementById('checkoutList'); el.innerHTML = '';
+      let subtotal = 0;
+      cart.forEach(it=>{
+        const m = menu.find(x=>x.id===it.id) || {title:'Item',image:null};
+        const div = document.createElement('div'); div.className='checkout-item';
+        const thumb = imgById(m.image)||'';
+        const addonsText = (it.addons||[]).map(aid=>{const a=addons.find(x=>x.id===aid);return a? a.title+'(+'+a.price.toFixed(2)+')':''}).join(', ');
+        const addonsPrice = (it.addons||[]).reduce((s,id)=>{const a=addons.find(x=>x.id===id);return s+(a? a.price:0)},0);
+        const total = (it.unitPrice + addonsPrice) * it.quantity;
+        subtotal += total;
+        div.innerHTML = `<img src="${thumb}"><div style="flex:1"><div style="font-weight:700">${m.title}</div><div style="font-size:13px;color:#666">Qty: ${it.quantity} ${addonsText?('<br>'+addonsText):''} ${it.note?('<br>Note: '+escapeHtml(it.note)):''}</div></div><div style="font-weight:800">${total.toFixed(2)}</div>`;
+        el.appendChild(div);
+      });
+      const tax = subtotal * taxRate; const total = subtotal + tax;
+      document.getElementById('coSubtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('coTax').textContent = tax.toFixed(2);
+      document.getElementById('coTotal').textContent = total.toFixed(2);
+      document.getElementById('checkoutModal').classList.add('show');
+    }
+    document.getElementById('coClose').addEventListener('click',()=>document.getElementById('checkoutModal').classList.remove('show'));
+    document.getElementById('coCheckout').addEventListener('click',()=>{
+      // prepare checkout payload and show QR
+      const payload = collect();
+      const q = JSON.stringify(payload);
+      const qrUrl = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=' + encodeURIComponent(q);
+      document.getElementById('qrImg').src = qrUrl;
+      document.getElementById('checkoutModal').classList.remove('show');
+      document.getElementById('qrModal').classList.add('show');
+    });
+
+    // util
+    function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+    // COLLECT function as requested
+    function collect(){
+      const items = cart.map(it=>({id: it.id, quantity: it.quantity, totalprice: (()=>{const addonsPrice = (it.addons||[]).reduce((s,id)=>{const a=addons.find(x=>x.id===id);return s + (a? a.price:0)},0); return ((it.unitPrice || 0) + addonsPrice) * it.quantity;})(), note: it.note||'', addons: (it.addons||[]).slice() }));
+      const totalprice = items.reduce((s,i)=>s + (i.totalprice||0),0);
+      const totalquantity = items.reduce((s,i)=>s + (i.quantity||0),0);
+      return {totalprice, totalquantity, items};
+    }
+    // expose collect globally for caller usage
+    window.collect = collect;
+
+    // init
+    loadData();
+
+    // make sure modals close on outside click
+    document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); }));
+
   </script>
 </body>
 </html>
