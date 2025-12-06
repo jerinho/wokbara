@@ -5,22 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wok & Bara</title>
   <style>
-    :root{
-      --left-width: 260px; /* fixed left column width */
-      --card-max-width: 240px; /* default card max width (can be overridden by JS) */
-      --gap: 12px;
-      --bottom-height: 72px;
-      --popup-width: 620px; /* fixed popup width */
-      --tax-rate: 0.07; /* example tax */
-    }
+    :root{--left-width: 260px; --card-max-width: 240px; --gap: 12px; --bottom-height: 72px; --popup-width: 620px; --tax-rate: 0.07;}
     *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
     html,body,#app{height:100%;margin:0}
     body{display:flex;flex-direction:column;background:#f6f7fb}
-
-    /* main layout */
     .container{display:grid;grid-template-columns:var(--left-width) 1fr;gap:var(--gap);padding:var(--gap);height:calc(100vh - var(--bottom-height));}
-
-    /* left column: vertical unscrollable listview */
     .categories{background:#fff;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
     .cat-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer}
     .cat-item img{width:44px;height:44px;object-fit:cover;border-radius:8px}
@@ -28,12 +17,8 @@
     .cat-item .meta .title{font-weight:600}
     .cat-item .count{font-weight:700;min-width:28px;text-align:right}
     .cat-item.active{background:#eef2ff}
-
-    /* right: gridview of products */
     .products-area{background:#fff;border-radius:10px;padding:12px;overflow:auto}
     .products-grid{display:grid;grid-gap:12px;align-content:start}
-
-    /* product card */
     .card{display:flex;flex-direction:column;border-radius:10px;padding:10px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.03);border:1px solid #eee;min-height:120px}
     .thumb{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}
     .card .title{font-weight:600;}
@@ -41,13 +26,9 @@
     .card .qty{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
     .card .qty .selected{font-size:13px}
     .card .actions button{padding:6px 8px;border-radius:6px;border:none;background:#0b5fff;color:#fff;cursor:pointer}
-
-    /* bottom bar */
     .bottom-bar{height:var(--bottom-height);display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-top:1px solid #eee}
     .summary{display:flex;gap:18px;align-items:center}
-    .checkout-btn{padding:12px 18px;border-radius:10px;border:none;background:#0b5fff;color:#fff;font-weight:700;cursor:pointer}
-
-    /* modal / popup */
+	.button{padding:12px 18px;border-radius:10px;border:none;background:#0b5fff;color:#fff;font-weight:700;cursor:pointer}
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;padding:20px}
     .overlay.show{display:flex}
     .modal{width:var(--popup-width);max-width:calc(100% - 40px);background:#fff;border-radius:12px;padding:18px;display:flex;gap:14px}
@@ -61,19 +42,39 @@
     .qty-controls button{width:36px;height:36px;border-radius:8px;border:none;background:#eee;cursor:pointer}
     .addon-list{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:160px;overflow:auto}
     .addon-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid #f0f0f0}
-
-    /* checkout modal */
     .checkout-modal{width:640px;max-width:calc(100% - 40px)}
     .checkout-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding:10px}
     .checkout-item{display:flex;gap:8px;align-items:flex-start}
     .checkout-item img{width:56px;height:56px;object-fit:cover;border-radius:6px}
-    .small{font-size:13px;color:#666}
-	
+    .small{font-size:13px;color:#666}	
 	#current-category-title{display:none;}
-
-    /* responsive: allow changing number of columns via CSS variable set by JS */
     @media (max-width:700px){:root{--left-width:90px}}
   </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+	const firebaseConfig = {
+	  apiKey: "AIzaSyBHgIKGh3DfqKQGsM-AfQjnVo4GEtpUDXs",
+	  authDomain: "semestaalamsemulajadi.firebaseapp.com",
+	  projectId: "semestaalamsemulajadi",
+	  storageBucket: "semestaalamsemulajadi.firebasestorage.app",
+	  messagingSenderId: "911910247061",
+	  appId: "1:911910247061:web:453d0751b85d76d7db599c",
+	  measurementId: "G-NR4TQ8KC21"
+	};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    async function loadItems() {
+      const snap = await getDocs(collection(db, "gizi"));
+      const list = [];
+      snap.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      console.log("Products:", list);
+      document.getElementById("output").textContent = JSON.stringify(list, null, 2);
+    }
+	window.loadItems = loadItems;
+  </script>
 </head>
 <body>
   <div id="app">
@@ -93,7 +94,8 @@
         <div class="small">Total: <strong id="totalPrice">0.00</strong></div>
       </div>
       <div>
-        <button class="checkout-btn" id="checkoutBtn">CHECKOUT</button>
+        <button class="button" id="btnloaditems" onclick="loadItems()">LOAD ITEMS</button>
+        <button class="button" id="checkoutBtn">CHECKOUT</button>
       </div>
     </div>
 
@@ -145,7 +147,7 @@
               <div class="small">Total: <strong id="checkoutTotal">0.00</strong></div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-              <button id="goToPay" class="checkout-btn">CHECKOUT</button>
+              <button id="goToPay" class="button">CHECKOUT</button>
               <button id="closeCheckout" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff">CANCEL</button>
             </div>
           </div>
